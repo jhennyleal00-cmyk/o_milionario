@@ -654,3 +654,53 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
 }
 .mercado-principal { grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
 .leiloes, .empresas, .mercado-barra { min-width: 0; }
+
+/* =====================================================================
+   Banqueiro
+   ===================================================================== */
+.modal-banco { width: min(920px, 100%); }
+.banco-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.banco-titulo { display: flex; align-items: center; gap: 10px; color: var(--ouro-claro); }
+.banco-titulo .modal-titulo { margin: 0; }
+.banco-juros { display: flex; flex-direction: column; align-items: flex-end; padding: 6px 14px; border-radius: 12px; background: rgba(214, 168, 64, .1); border: 1px solid var(--linha-forte); }
+.banco-juros span { font-size: 11px; color: var(--suave); text-transform: uppercase; letter-spacing: .1em; }
+.banco-juros strong { font-size: 22px; color: var(--ouro-claro); }
+.banco-alerta { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 107, 107, .12); border: 1px solid rgba(255, 107, 107, .5); color: #ffd0d0; font-size: 14px; }
+.banco-grade { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; align-items: start; }
+.banco-esq { display: grid; gap: 12px; }
+.banco-cartao, .banco-contratos { padding: 14px; border-radius: 14px; background: rgba(255, 255, 255, .035); border: 1px solid var(--linha); display: grid; gap: 8px; }
+.banco h3 { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--suave); }
+.banco-linha { display: flex; justify-content: space-between; font-size: 14px; color: var(--suave); }
+.banco-linha strong { color: var(--texto); }
+.banco-linha.destaque strong { color: var(--ouro-claro); font-size: 17px; }
+.banco-cartao .rotulo { margin: 6px 0 2px; }
+.banco-deslizar { width: 100%; accent-color: var(--ouro); }
+.banco-rodadas { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.banco-rodada { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border-radius: 10px; border: 1px solid var(--linha); background: rgba(0, 0, 0, .25); cursor: pointer; color: var(--texto); font: inherit; }
+.banco-rodada b { font-size: 15px; }
+.banco-rodada small { font-size: 10px; color: var(--suave); }
+.banco-rodada.ativa { background: var(--grad-ouro); color: #1a1205; border-color: transparent; }
+.banco-rodada.ativa small { color: #3a2a08; }
+.banco-resumo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 12px; border-radius: 12px; background: rgba(214, 168, 64, .08); font-size: 14px; color: var(--suave); }
+.banco-resumo strong { color: var(--texto); text-align: right; }
+.banco-resumo .banco-pagar { color: var(--ouro-claro); font-size: 16px; }
+.banco-cartao .btn-grande { width: 100%; }
+.banco-resumo-dividas { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 6px; border-bottom: 1px solid var(--linha); }
+.banco-resumo-dividas span { color: var(--suave); font-size: 13px; }
+.banco-resumo-dividas strong { font-size: 18px; color: var(--vermelho); }
+.contrato { padding: 10px 12px; border-radius: 12px; background: rgba(0, 0, 0, .25); border: 1px solid var(--linha); display: grid; gap: 6px; }
+.contrato-aberto { border-color: var(--linha-forte); }
+.contrato-pago, .contrato-cobrado { opacity: .7; }
+.contrato-topo { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.contrato dl { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; margin: 0; font-size: 13px; }
+.contrato dt { color: var(--suave); font-size: 11px; }
+.contrato dd { margin: 0 0 4px; font-weight: 700; }
+.contrato .btn { justify-self: start; }
+
+.rodada.cobranca { border-color: rgba(255, 107, 107, .7); color: #ffd0d0; gap: 4px; display: inline-flex; align-items: center; }
+.cobranca-icone { font-size: 9px; font-weight: 800; padding: 1px 4px; border-radius: 6px; background: var(--vermelho); color: #1a0505; }
+.cartao-alerta { margin: 4px 0 0; font-size: 11px; color: #ffb4b4; }
+@media (max-width: 760px), (max-height: 560px) {
+  .banco-grade { grid-template-columns: 1fr; }
+  .banco-rodadas { grid-template-columns: repeat(5, 1fr); }
+}

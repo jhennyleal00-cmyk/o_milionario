@@ -11,6 +11,7 @@ import { garantirFotos, foto as fotoDe, todasFotos } from './fotos.js';
 import { obterRodada, mostrarNovidades, CATEGORIAS } from './noticias.js';
 import { graficoPreco, variacao, fmtPct } from './graficos.js';
 import { criarMercado } from './mercado.js';
+import { abrirBanqueiro } from './banqueiro.js';
 
 let catalogo = null;
 async function carregarCatalogo() {
@@ -31,6 +32,9 @@ export function criarPrincipal({ token, atualizarTudo }) {
   const btnOlho = el('button', { class: 'btn-icone', 'aria-label': 'Ocultar meus valores no ranking', onclick: alternarOculto });
   const btnGrafico = el('button', { class: 'btn-icone', 'aria-label': 'Ver meu progresso até a meta', onclick: abrirProgresso }, icone('grafico'));
   const avisoOculto = el('span', { class: 'cartao-oculto' }, 'Oculto no ranking');
+  const vDividas = el('span', { class: 'valor negativo' });
+  const linhaDividas = el('div', { class: 'linha-valor', hidden: true }, el('span', {}, 'Dívidas'), vDividas);
+  const avisoCarteira = el('p', { class: 'cartao-alerta', hidden: true });
 
   const cartao = el('section', { class: 'painel cartao-jogador' },
     foto,
@@ -38,7 +42,8 @@ export function criarPrincipal({ token, atualizarTudo }) {
       el('div', { class: 'cartao-topo' }, nome, el('div', { class: 'cartao-botoes' }, btnOlho, btnGrafico)),
       el('div', { class: 'linha-valor' }, el('span', {}, 'Carteira'), vCarteira),
       el('div', { class: 'linha-valor' }, el('span', {}, 'Patrimônio'), vPatrimonio),
-      avisoOculto));
+      linhaDividas,
+      avisoOculto, avisoCarteira));
 
   const vInflacao = el('strong', { class: 'inflacao-valor' }, '—');
   const vInflacaoVar = el('span', { class: 'inflacao-var' });
@@ -65,7 +70,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
   // --- direita: banqueiro + ranking ---
   const btnBanqueiro = el('button', {
     class: 'btn-redondo btn-banqueiro', 'aria-label': 'Banqueiro',
-    onclick: () => toast('O Banqueiro abre na Etapa 6.', 'info'),
+    onclick: () => abrirBanqueiro({ token, aoMudar: () => { atualizarTudo?.(); ultimoRanking = 0; carregarRanking(); } }),
   }, icone('banco', 30), el('span', {}, 'Banqueiro'));
 
   const corpoRanking = el('div', { class: 'ranking-corpo' });
@@ -123,13 +128,24 @@ export function criarPrincipal({ token, atualizarTudo }) {
     btnOlho.classList.toggle('ativo', eu.oculto);
     avisoOculto.hidden = !eu.oculto;
 
-    if (linhaRodadas.dataset.rodada !== String(sala.rodada)) {
-      linhaRodadas.dataset.rodada = sala.rodada;
+    const cobrancas = (eu.cobrancas || []).map(Number);
+    const chaveLinha = `${sala.rodada}|${cobrancas.join(',')}`;
+    if (linhaRodadas.dataset.chave !== chaveLinha) {
+      linhaRodadas.dataset.chave = chaveLinha;
       linhaRodadas.replaceChildren(...Array.from({ length: 30 }, (_, i) => {
         const n = sala.rodada + i;
-        return el('li', { class: 'rodada' + (i === 0 ? ' atual' : '') }, i === 0 ? `Rodada ${n}` : String(n));
+        const cobra = cobrancas.includes(n);
+        return el('li', { class: 'rodada' + (i === 0 ? ' atual' : '') + (cobra ? ' cobranca' : ''), title: cobra ? 'Cobrança do banqueiro nesta rodada' : null },
+          cobra ? el('span', { class: 'cobranca-icone', 'aria-label': 'cobrança' }, 'R$') : null,
+          i === 0 ? `Rodada ${n}` : String(n));
       }));
     }
+    const dividas = Number(eu.dividas || 0);
+    linhaDividas.hidden = dividas <= 0;
+    vDividas.textContent = real(dividas);
+    if (eu.eliminado) { avisoCarteira.hidden = false; avisoCarteira.textContent = 'Você faliu e está fora da partida.'; }
+    else if (Number(eu.carteira) < 0) { avisoCarteira.hidden = false; avisoCarteira.textContent = 'Carteira negativa: venda ações. Ao fechar o mercado o sistema vende por você.'; }
+    else avisoCarteira.hidden = true;
     if (Date.now() - ultimoRanking > 3000) carregarRanking();
     if (rodadaInfo !== sala.rodada) carregarInfo(sala.rodada);
     statusMercado.textContent = sala.fase === 'mercado' ? 'Aberto' : 'Leilões';
@@ -199,7 +215,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
           el('strong', {}, r.nome),
           r.oculto
             ? el('span', { class: 'rank-sub oculto' }, 'Valores ocultos')
-            : el('span', { class: 'rank-sub' }, [`Carteira ${realCompacto(r.carteira)}`, `Patrimônio ${realCompacto(r.patrimonio)}`].map((t) => t.replace(/ /g, '\u00a0')).join(' · '))),
+            : el('span', { class: 'rank-sub' + (r.eliminado ? ' oculto' : '') }, r.eliminado ? 'Faliu' : [`Carteira ${realCompacto(r.carteira)}`, `Patrimônio ${realCompacto(r.patrimonio)}`, Number(r.dividas) > 0 ? `Dívidas ${realCompacto(r.dividas)}` : null].filter(Boolean).map((t) => t.replace(/ /g, '\u00a0')).join(' · '))),
         el('span', { class: 'rank-total' }, r.oculto ? '••••' : 'R$ ' + realCompacto(r.total)))));
     } else {
       corpoRanking.replaceChildren(...dadosRanking.empresas.map((e) => el('button', { class: 'rank-linha rank-botao', onclick: () => { cidade?.focar(e.id); abrirEmpresa(e.id); } },
