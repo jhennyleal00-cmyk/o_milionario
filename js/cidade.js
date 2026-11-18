@@ -284,6 +284,19 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
     c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
   }
 
+  // Seta verde (subiu) ou vermelha (caiu) no canto do marcador
+  function seta(cx, cy, pct) {
+    if (!pct) return;
+    const sobe = pct > 0;
+    ctx.fillStyle = '#0e0e12'; ctx.beginPath(); ctx.arc(cx, cy, 7.5, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = sobe ? '#3ccf8e' : '#ff6b6b'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.fillStyle = sobe ? '#3ccf8e' : '#ff6b6b';
+    ctx.beginPath();
+    if (sobe) { ctx.moveTo(cx, cy - 4.5); ctx.lineTo(cx + 4.5, cy + 3); ctx.lineTo(cx - 4.5, cy + 3); }
+    else { ctx.moveTo(cx, cy + 4.5); ctx.lineTo(cx + 4.5, cy - 3); ctx.lineTo(cx - 4.5, cy - 3); }
+    ctx.closePath(); ctx.fill();
+  }
+
   function desenharMarcadores() {
     alvos = [];
     const compacto = cam.z < 0.62;
@@ -301,7 +314,11 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       ctx.font = '700 12px Manrope, system-ui, sans-serif';
       const titulo = st.dono_id ? (st.dono_nome || 'Dono') : st.nome;
       const sub = st.dono_id ? `${st.acoes_dono} ${st.acoes_dono === 1 ? 'ação' : 'ações'}` : 'Disponível';
-      w = compacto ? tam + 10 : tam + 18 + Math.max(ctx.measureText(titulo).width, 62);
+      const pctTxt = st.pct ? ` ${st.pct > 0 ? '▲' : '▼'} ${Math.abs(Number(st.pct)).toFixed(1).replace('.', ',')}%` : '';
+      ctx.font = '600 11px Manrope, system-ui, sans-serif';
+      const larguraSub = ctx.measureText(sub + pctTxt).width;
+      ctx.font = '700 12px Manrope, system-ui, sans-serif';
+      w = compacto ? tam + 10 : tam + 18 + Math.max(ctx.measureText(titulo).width, larguraSub, 62);
       const x = sx - w / 2, y = sy - h - 9;
       // haste e sombra
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
@@ -320,12 +337,16 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
         if (logoImg) ctx.drawImage(logoImg, ix + tam - 12, iy + tam - 12, 15, 15);
       } else if (logoImg) {
         ctx.drawImage(logoImg, ix, iy, tam, tam);
-        ctx.fillStyle = '#3ccf8e'; ctx.beginPath(); ctx.arc(ix + tam - 2, iy + 2, 4, 0, Math.PI * 2); ctx.fill();
       }
+      seta(ix + tam - 1, iy + 1, Number(st.pct || 0));
       if (!compacto) {
         ctx.fillStyle = '#f3eee2'; ctx.fillText(titulo, ix + tam + 8, iy + 13);
         ctx.font = '600 11px Manrope, system-ui, sans-serif';
-        ctx.fillStyle = st.dono_id ? '#f6dc8e' : '#3ccf8e'; ctx.fillText(sub, ix + tam + 8, iy + 27);
+        ctx.fillStyle = st.dono_id ? '#f6dc8e' : '#a9a292'; ctx.fillText(sub, ix + tam + 8, iy + 27);
+        if (pctTxt) {
+          const w0 = ctx.measureText(sub).width;
+          ctx.fillStyle = st.pct > 0 ? '#3ccf8e' : '#ff6b6b'; ctx.fillText(pctTxt, ix + tam + 8 + w0, iy + 27);
+        }
       }
       alvos.push({ id, x, y, w, h: h + 9 });
     }

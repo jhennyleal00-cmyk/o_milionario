@@ -1,5 +1,6 @@
 // Textos fixos: mensagem inicial e botão de ajuda.
-import { el, real } from './ui.js';
+import { el, real, modal } from './ui.js';
+import { marca } from './logos.js';
 
 export const SETORES = {
   energia:    { nome: 'Energia & Combustível',  cor: '#f2b234' },
@@ -30,4 +31,26 @@ export function textoAjuda(sala) {
     bloco('Banqueiro', 'Empresta dinheiro com juros que acompanham a inflação (nunca abaixo de 18%). A cobrança sai da carteira na rodada marcada no contrato.'),
     bloco('Notícias e inflação', 'As notícias, a inflação e a procura dos jogadores pelas ações fazem os preços subir ou cair a cada rodada. Fique de olho na faixa de notícias.'),
     bloco('Ranking', 'O ícone de olho no seu cartão esconde os seus valores no ranking. No Mercado de Ações tudo continua visível.'));
+}
+
+// Botão "?" com os produtos e serviços da empresa
+export function botaoSobre(e) {
+  return el('button', {
+    class: 'btn-sobre', type: 'button', 'aria-label': `Com o que a ${e.nome} trabalha`, title: 'Produtos e serviços',
+    onclick: (ev) => { ev.stopPropagation(); abrirSobre(e); },
+  }, '?');
+}
+export function abrirSobre(e) {
+  const setor = SETORES[e.setor];
+  modal({
+    classe: 'modal-sobre',
+    conteudo: el('div', { class: 'sobre' },
+      el('img', { src: marca(e.id), alt: '' }),
+      el('div', {},
+        setor ? el('span', { class: 'empresa-setor', style: `--cor:${setor.cor}` }, setor.nome) : null,
+        el('h2', { class: 'modal-titulo' }, e.nome),
+        el('p', { class: 'sobre-rotulo' }, 'Produtos e serviços'),
+        el('p', {}, e.descricao || 'Sem descrição.'))),
+    botoes: [{ texto: 'Fechar', classe: 'btn-ouro' }],
+  });
 }

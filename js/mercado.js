@@ -3,7 +3,7 @@
 import { rpc } from './db.js';
 import { el, real, toast, modal, confirmar, icone } from './ui.js';
 import { marca } from './logos.js';
-import { SETORES } from './regras.js';
+import { SETORES, botaoSobre } from './regras.js';
 import { miniGrafico, variacao } from './graficos.js';
 import { garantirFotos, foto as fotoDe } from './fotos.js';
 
@@ -21,6 +21,15 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   const abasMovel = el('div', { class: 'abas mercado-abas-movel', role: 'tablist' },
     ...[['empresas', 'Mercado'], ['forum', 'Fórum']].map(([id, txt]) =>
       el('button', { class: 'aba', 'data-movel': id, onclick: () => { abaMovel = id; desenhar(); } }, txt)));
+  // faixa de notícias dentro do mercado (aparece quando o mercado cobre a tela toda)
+  const faixaTexto = el('div', { class: 'faixa-texto' });
+  const faixaMercado = el('div', { class: 'faixa-noticias mercado-faixa', 'aria-label': 'Notícias da rodada' },
+    el('span', { class: 'faixa-etiqueta' }, 'NOTÍCIAS'), el('div', { class: 'faixa-janela' }, faixaTexto));
+  function definirFaixa(txt) {
+    if (!txt) return;
+    faixaTexto.replaceChildren(el('span', {}, txt), el('span', {}, txt));
+    faixaTexto.style.animationDuration = `${Math.max(30, txt.length * 0.22)}s`;
+  }
   const cabecalho = el('header', { class: 'mercado-topo' },
     el('div', { class: 'mercado-titulo' }, icone('mercado', 22), el('h2', {}, 'Mercado de Ações'), chip),
     el('div', { class: 'mercado-carteira' }, el('span', {}, 'Carteira'), vCarteira),
@@ -40,7 +49,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     el('section', { class: 'empresas' }, el('h3', {}, 'Empresas'), abasSetor, grade));
   const forum = el('aside', { class: 'forum' }, el('h3', {}, 'Fórum das ações'), listaForum);
   const raiz = el('section', { class: 'mercado', hidden: true, 'aria-label': 'Mercado de Ações' },
-    cabecalho, el('div', { class: 'mercado-corpo' }, principal, forum));
+    cabecalho, faixaMercado, el('div', { class: 'mercado-corpo' }, principal, forum));
 
   // ------------------------------------------------------------------
   function abrir() {
@@ -248,7 +257,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
         ordemMinha >= 0 && d.status !== 'encerrada' ? el('span', { class: 'chip chip-espera', title: 'Ordem dos seus leilões' }, `Seu ${ordemMinha + 1}º`) : null),
       situacao,
       el('ol', { class: 'participantes' }, d.participantes.map((p) => el('li', { class: p.jogador_id === d.lider_id ? 'lider' : '' },
-        el('img', { src: fotoDe(p.jogador_id), alt: '' }),
+        el('img', { src: fotoDe(p.jogador_id, p.foto), alt: '' }),
         el('span', {}, p.nome),
         p.papel === 'dono' ? el('span', { class: 'chip chip-ok' }, 'dono')
           : p.jogador_id === d.lider_id ? el('span', { class: 'chip chip-espera' }, 'na frente')
@@ -289,12 +298,13 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       el('header', {},
         el('img', { src: marca(e.id), alt: '' }),
         el('strong', {}, e.nome),
-        disputa ? el('span', { class: 'chip chip-espera' }, 'Em disputa') : null),
+        disputa ? el('span', { class: 'chip chip-espera' }, 'Em disputa') : null,
+        botaoSobre(e)),
       el('button', { class: 'emp-grafico', 'aria-label': `Ver o gráfico da ${e.nome}`, onclick: () => abrirEmpresa(e.id) },
         serie && serie.length > 1 ? miniGrafico(serie, 200, 46) : el('span', { class: 'texto-mini' }, 'Ver detalhes')),
       el('div', { class: 'emp-preco' }, el('span', {}, el('small', {}, '1 ação'), el('b', {}, real(e.preco))), variacao(pct)),
       e.dono_id
-        ? el('div', { class: 'emp-dono' }, el('img', { src: fotoDe(e.dono_id), alt: '' }),
+        ? el('div', { class: 'emp-dono' }, el('img', { src: fotoDe(e.dono_id, e.dono_foto), alt: '' }),
           el('span', {}, souDono ? 'Você' : e.dono_nome, el('small', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'}`)))
         : el('div', { class: 'emp-dono livre' }, el('span', { class: 'chip chip-ok' }, 'Disponível')),
       el('div', { class: 'emp-botoes' }, botoes));
@@ -339,7 +349,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   }
 
   return {
-    raiz, abrir, fechar,
+    raiz, abrir, fechar, definirFaixa,
     abrirLeiloes: () => { abaLeiloes = 'minhas'; if (!aberto) abrir(); else carregar(); },
     alternar: () => (aberto ? fechar() : abrir()),
     atualizar: () => aberto && carregar(),

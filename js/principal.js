@@ -7,7 +7,7 @@ import { fotoSrc } from './avatares.js';
 import { SETORES, textoAjuda } from './regras.js';
 import { marca, logo } from './logos.js';
 import { criarCidade } from './cidade.js';
-import { garantirFotos, foto as fotoDe, todasFotos } from './fotos.js';
+import { garantirFotos, foto as fotoDe, fotosComReserva } from './fotos.js';
 import { obterRodada, mostrarNovidades, CATEGORIAS } from './noticias.js';
 import { graficoPreco, variacao, fmtPct } from './graficos.js';
 import { criarMercado } from './mercado.js';
@@ -58,9 +58,12 @@ export function criarPrincipal({ token, atualizarTudo }) {
   const faixa = el('button', { class: 'painel faixa-noticias', 'aria-label': 'Ver as notícias da rodada', onclick: () => abrirNovidades('noticias') },
     el('span', { class: 'faixa-etiqueta' }, 'NOTÍCIAS'),
     el('div', { class: 'faixa-janela' }, faixaTexto));
+  let ultimaFaixa = '', aoMudarFaixa = null;
   const preencherFaixa = (txt) => {
+    ultimaFaixa = txt;
     faixaTexto.replaceChildren(el('span', {}, txt), el('span', {}, txt));
     faixaTexto.style.animationDuration = `${Math.max(30, txt.length * 0.22)}s`;
+    aoMudarFaixa?.(txt);
   };
   preencherFaixa('Neópolis abre os negócios  ·  As notícias de cada rodada passam por esta faixa  ·  ');
   let info = null, rodadaInfo = null, leiloesAbertos = null;
@@ -84,6 +87,8 @@ export function criarPrincipal({ token, atualizarTudo }) {
     token, abrirEmpresa: (id) => abrirEmpresa(id), obterInfo: () => info,
     aoMudar: () => { atualizarTudo?.(); ultimoRanking = 0; carregarRanking(); },
   });
+  aoMudarFaixa = (t) => mercado.definirFaixa(t);
+  mercado.definirFaixa(ultimaFaixa);
   const statusMercado = el('span', { class: 'mercado-status' });
   const btnMercado = el('button', {
     class: 'btn-redondo btn-mercado', 'aria-label': 'Mercado de Ações',
@@ -165,6 +170,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
       const i = await obterRodada(est.sala.id, r);
       if (rodadaInfo !== r) return;
       info = i;
+      atualizarCidade();
       if (i.noticias.length) preencherFaixa(i.noticias.map((n) => `${(CATEGORIAS[n.categoria]?.nome || '').toUpperCase()}: ${n.texto}`).join('   ·   ') + '   ·   ');
       if (i.inflacao !== null && i.inflacao !== undefined) {
         vInflacao.textContent = fmtPct(Number(i.inflacao), 2);
@@ -183,8 +189,17 @@ export function criarPrincipal({ token, atualizarTudo }) {
     try {
       const i = info && info.rodada === est.sala.rodada ? info : await obterRodada(est.sala.id, est.sala.rodada);
       if (!i.noticias.length) { aoFechar?.(); return; }
-      mostrarNovidades(i, { inicio, aoFechar });
+      const donos = Object.fromEntries((dadosRanking?.empresas || []).map((e) => [e.id,
+        { dono_id: e.dono_id, dono_nome: e.dono_nome, acoes_dono: e.acoes_dono, dono_foto: e.dono_foto }]));
+      mostrarNovidades(i, { inicio, aoFechar, euId: est.eu.id, donos });
     } catch (e) { toast(e.message, 'erro'); }
+  }
+
+  function atualizarCidade() {
+    if (!cidade || !dadosRanking) return;
+    const pct = Object.fromEntries((info?.empresas || []).map((e) => [e.id, Number(e.pct)]));
+    const lista = dadosRanking.empresas.map((e) => ({ ...e, pct: pct[e.id] ?? 0 }));
+    cidade.atualizarEmpresas(lista, fotosComReserva(dadosRanking.empresas.map((e) => [e.dono_id, e.dono_foto])));
   }
 
   async function carregarRanking() {
@@ -194,7 +209,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
       dadosRanking = await rpc('ranking', { p_sala: est.sala.id });
       const ids = dadosRanking.ricos.map((r) => r.id);
       await garantirFotos(est.sala.id, ids);
-      cidade?.atualizarEmpresas(dadosRanking.empresas, todasFotos());
+      atualizarCidade();
       desenharRanking();
     }
     catch { /* próxima atualização tenta de novo */ }
@@ -210,7 +225,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
     if (abaRanking === 'ricos') {
       corpoRanking.replaceChildren(...dadosRanking.ricos.map((r) => el('div', { class: 'rank-linha' + (r.id === est.eu.id ? ' sou-eu' : '') },
         el('span', { class: 'rank-pos' }, `${r.posicao}º`),
-        el('img', { class: 'rank-foto', src: fotoDe(r.id), alt: '' }),
+        el('img', { class: 'rank-foto', src: fotoDe(r.id, r.foto), alt: '' }),
         el('div', { class: 'rank-info' },
           el('strong', {}, r.nome),
           r.oculto
@@ -264,7 +279,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
     const nomeEmp = e.nome || cat.nome || id;
     const dono = e.dono_id
       ? el('div', { class: 'empresa-dono' },
-        el('img', { src: fotoDe(e.dono_id), alt: '' }),
+        el('img', { src: fotoDe(e.dono_id, e.dono_foto), alt: '' }),
         el('div', {}, el('strong', {}, e.dono_nome), el('span', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'} · ${real(e.valor)}`)))
       : el('div', { class: 'empresa-dono livre' }, el('span', { class: 'chip chip-ok' }, 'Disponível'), el('span', {}, 'Ainda não tem dono.'));
     modal({
@@ -274,7 +289,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
         el('div', { class: 'empresa-info' },
           el('span', { class: 'empresa-setor', style: `--cor:${SETORES[cat.setor || e.setor]?.cor || '#888'}` }, SETORES[cat.setor || e.setor]?.nome || ''),
           el('h2', { class: 'modal-titulo' }, nomeEmp),
-          el('p', { class: 'texto-suave' }, cat.descricao || ''),
+          el('p', { class: 'texto-suave' }, cat.descricao || info?.empresas.find((x) => x.id === id)?.descricao || ''),
           el('div', { class: 'progresso-linha' }, el('span', {}, 'Valor de 1 ação'), el('strong', {}, real(e.preco ?? cat.preco_inicial))),
           dono,
           historicoEmpresa(id),

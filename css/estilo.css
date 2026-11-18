@@ -704,3 +704,79 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .banco-grade { grid-template-columns: 1fr; }
   .banco-rodadas { grid-template-columns: repeat(5, 1fr); }
 }
+
+/* =====================================================================
+   Etapa 7: "?", relatório com donos, faixa no mercado, pódio
+   ===================================================================== */
+.btn-sobre {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--linha-forte);
+  background: rgba(214, 168, 64, .12); color: var(--ouro-claro); font-weight: 800; font-size: 12px; line-height: 1;
+  display: inline-grid; place-items: center; cursor: pointer; padding: 0;
+}
+.btn-sobre:hover { background: rgba(214, 168, 64, .3); }
+.modal-sobre { width: min(460px, 100%); }
+.sobre { display: grid; grid-template-columns: 72px 1fr; gap: 16px; align-items: start; }
+.sobre img { width: 72px; height: 72px; border-radius: 16px; }
+.sobre .modal-titulo { margin: 6px 0 4px; }
+.sobre p { margin: 0; line-height: 1.5; }
+.sobre-rotulo { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--suave); margin-bottom: 4px !important; }
+
+.emp-cartao header { display: flex; align-items: center; gap: 8px; }
+.emp-cartao header strong { flex: 1; min-width: 0; }
+
+.relatorio-topo { grid-template-columns: 26px 1fr auto; }
+.relatorio-topo img { grid-row: span 2; }
+.relatorio-topo .btn-sobre { grid-column: 3; grid-row: 1; width: 20px; height: 20px; font-size: 11px; }
+.relatorio-topo .variacao { grid-column: 2 / span 2; }
+.relatorio-empresa.minha { border-color: var(--ouro); background: rgba(214, 168, 64, .1); }
+.relatorio-dono { display: flex; align-items: center; gap: 6px; font-size: 12px; min-height: 22px; }
+.relatorio-dono img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; border: 1px solid var(--ouro); }
+.relatorio-dono small { color: var(--suave); }
+.relatorio-dono.livre span { color: var(--verde); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+
+.mercado-faixa { display: none; height: 30px; margin: 0; border-radius: 0; border-left: 0; border-right: 0; font-size: 13px; }
+@media (max-width: 1180px), (max-height: 560px) { .mercado-faixa { display: flex; } }
+@media (orientation: portrait) and (max-width: 760px) { .mercado-faixa { display: flex; } }
+
+.admin-ultima p { margin: 6px 0; }
+.admin-ultima-lista { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }
+
+/* ---------- pódio ---------- */
+.podio-tela { position: relative; min-height: 100dvh; padding: 24px 16px 40px; display: flex; flex-direction: column; align-items: center; gap: 18px; isolation: isolate; overflow-x: clip; }
+.podio-tela::before { content: ''; position: absolute; inset: 0; z-index: -2; background: var(--cidade) center bottom / cover no-repeat, var(--fundo); }
+.podio-tela::after { content: ''; position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse at 50% 30%, rgba(11, 11, 13, .55), rgba(11, 11, 13, .94) 70%); }
+.podio-brilho { position: absolute; top: 8%; left: 50%; width: min(520px, 100%); height: 520px; transform: translateX(-50%); z-index: -1; pointer-events: none;
+  background: radial-gradient(circle, rgba(246, 220, 142, .28), rgba(246, 220, 142, 0) 65%); animation: aparecer 1.2s ease; }
+.podio-topo { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.podio-texto { margin: 0; font-family: var(--titulo); font-size: clamp(18px, 3vw, 26px); color: var(--ouro-claro); max-width: 760px; }
+.podio { display: grid; grid-template-columns: repeat(3, minmax(0, 190px)); align-items: end; gap: 12px; width: min(620px, 100%); margin-top: 8px; }
+.degrau { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; animation: subir .6s cubic-bezier(.2, .8, .2, 1) both; }
+.degrau-1 { animation-delay: .5s; } .degrau-2 { animation-delay: .25s; } .degrau-3 { animation-delay: 0s; }
+.degrau img { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; border: 3px solid var(--ouro); box-shadow: 0 8px 26px rgba(0, 0, 0, .5); }
+.degrau-1 img { width: 104px; height: 104px; border-width: 4px; box-shadow: 0 0 0 6px rgba(214, 168, 64, .2), 0 10px 34px rgba(214, 168, 64, .35); }
+.degrau strong { font-size: 16px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.degrau.sou-eu strong { color: var(--ouro-claro); }
+.podio-total { font-size: 13px; color: var(--suave); }
+.podio-coroa { color: var(--ouro-claro); margin-bottom: -4px; }
+.degrau-bloco { width: 100%; display: grid; place-items: center; border-radius: 12px 12px 0 0; background: var(--grad-ouro); color: #1a1205;
+  font-family: var(--titulo); font-weight: 700; font-size: 26px; box-shadow: var(--sombra); }
+.degrau-1 .degrau-bloco { height: 130px; font-size: 38px; }
+.degrau-2 .degrau-bloco { height: 92px; background: linear-gradient(135deg, #f1f1f1, #a7adb5); }
+.degrau-3 .degrau-bloco { height: 66px; background: linear-gradient(135deg, #f0c39a, #9a5b2c); }
+.degrau.vazio { visibility: hidden; }
+.podio-meu { margin: 0; font-weight: 700; color: var(--ouro-claro); }
+.podio-tabela { width: min(900px, 100%); }
+.tabela-rolar { overflow-x: auto; }
+.tabela-final td, .tabela-final th { white-space: nowrap; }
+.tabela-final tr.sou-eu td { background: rgba(214, 168, 64, .1); }
+.tabela-jogador { display: inline-flex; align-items: center; gap: 8px; }
+.tabela-jogador img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+@media (max-width: 520px) {
+  .podio { gap: 6px; }
+  .degrau img { width: 58px; height: 58px; }
+  .degrau-1 img { width: 78px; height: 78px; }
+  .degrau strong { font-size: 13px; }
+  .degrau-1 .degrau-bloco { height: 100px; }
+  .degrau-2 .degrau-bloco { height: 72px; }
+  .degrau-3 .degrau-bloco { height: 52px; }
+}

@@ -3,6 +3,8 @@ import { rpc } from './db.js';
 import { el, modal, real, icone } from './ui.js';
 import { marca } from './logos.js';
 import { miniGrafico, variacao, fmtPct } from './graficos.js';
+import { botaoSobre } from './regras.js';
+import { foto as fotoDe } from './fotos.js';
 
 export const CATEGORIAS = {
   mundo: { nome: 'Mundo', icone: 'globo' },
@@ -39,7 +41,7 @@ function indicador(rotulo, valor, anterior, casas = 1, inverso = false) {
 }
 
 // Sequência: Notícias → Relatório geral. Chama aoFechar no fim.
-export function mostrarNovidades(info, { aoFechar, inicio = 'noticias' } = {}) {
+export function mostrarNovidades(info, { aoFechar, inicio = 'noticias', euId = null, donos = {} } = {}) {
   let janela = null;
   const fechar = () => { janela?.fechar(); aoFechar?.(); };
 
@@ -54,7 +56,9 @@ export function mostrarNovidades(info, { aoFechar, inicio = 'noticias' } = {}) {
 
   const paginaRelatorio = () => {
     janela?.fechar();
-    const ordenadas = [...info.empresas];
+    // dono atual de cada empresa (o mais recente que a tela tiver) e as minhas primeiro
+    const comDono = info.empresas.map((e) => ({ ...e, ...(donos[e.id] || {}) }));
+    const ordenadas = [...comDono.filter((e) => euId && e.dono_id === euId), ...comDono.filter((e) => !euId || e.dono_id !== euId)];
     janela = modal({
       titulo: 'Relatório geral do Mercado', classe: 'modal-relatorio', fecharFora: false,
       conteudo: el('div', {},
@@ -63,11 +67,16 @@ export function mostrarNovidades(info, { aoFechar, inicio = 'noticias' } = {}) {
           indicador('Juros do banqueiro', info.juros, info.juros_ant, 2),
           indicador('Desemprego no país', info.desemprego_br, info.desemprego_br_ant),
           indicador('Desemprego em Neópolis', info.desemprego_local, info.desemprego_local_ant)),
-        el('div', { class: 'relatorio-grade' }, ordenadas.map((e) => el('article', { class: 'relatorio-empresa' },
+        el('div', { class: 'relatorio-grade' }, ordenadas.map((e) => el('article', { class: 'relatorio-empresa' + (euId && e.dono_id === euId ? ' minha' : '') },
           el('div', { class: 'relatorio-topo' },
             el('img', { src: marca(e.id), alt: '' }),
             el('strong', {}, e.nome),
+            botaoSobre(e),
             variacao(e.pct)),
+          e.dono_id
+            ? el('div', { class: 'relatorio-dono' }, el('img', { src: fotoDe(e.dono_id, e.dono_foto), alt: '' }),
+              el('span', {}, euId && e.dono_id === euId ? 'Você' : e.dono_nome, el('small', {}, ` · ${e.acoes_dono} ${Number(e.acoes_dono) === 1 ? 'ação' : 'ações'}`)))
+            : el('div', { class: 'relatorio-dono livre' }, el('span', {}, 'Disponível')),
           miniGrafico((e.serie || []).map(Number), 132, 38),
           el('div', { class: 'relatorio-precos' },
             el('span', {}, el('small', {}, 'Anterior'), real(e.anterior)),

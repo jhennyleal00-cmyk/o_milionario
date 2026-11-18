@@ -78,7 +78,7 @@ function desenhar(r) {
     pararOuvir?.(); pararOuvir = null; salaOuvida = sala?.id || null;
     if (salaOuvida) pararOuvir = ouvirSala(salaOuvida, carregar);
   }
-  if (!sala) return desenharSemSala();
+  if (!sala) return desenharSemSala(r.ultima);
   if (document.activeElement && corpo.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
 
   const prontos = jogadores.filter((j) => j.pronto).length;
@@ -130,7 +130,10 @@ function desenhar(r) {
         el('button', {
           class: 'btn btn-perigo',
           onclick: async () => {
-            if (await confirmar('Encerrar a sala?', 'A partida termina para todos e não há como desfazer.', 'Encerrar')) chamar('admin_encerrar_sala');
+            const txt = sala.status === 'jogando'
+              ? 'A partida termina agora para todos e aparece o pódio com a situação do momento. Não há como desfazer.'
+              : 'A sala é fechada e ninguém mais entra. Não há como desfazer.';
+            if (await confirmar(sala.status === 'jogando' ? 'Encerrar a partida?' : 'Encerrar a sala?', txt, 'Encerrar')) chamar('admin_encerrar_sala');
           },
         }, 'Encerrar sala'))),
     el('section', { class: 'cartao admin-jogadores' },
@@ -151,12 +154,18 @@ function desenhar(r) {
         }, 'Remover'))))));
 }
 
-function desenharSemSala() {
+function desenharSemSala(ultima) {
   if (document.activeElement && corpo.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
   if (corpo.querySelector('.admin-criar')) return;
   const capital = el('input', { class: 'campo', id: 'capital', type: 'number', min: '1000', step: '1000', value: '100000' });
   const meta = el('input', { class: 'campo', id: 'meta', type: 'number', min: '10000', step: '10000', value: '1000000' });
-  corpo.replaceChildren(el('form', {
+  const resumo = ultima ? el('section', { class: 'cartao admin-ultima' },
+    el('h2', { class: 'titulo-secao' }, 'Última partida'),
+    el('p', {}, ultima.texto),
+    el('ol', { class: 'admin-ultima-lista' }, (ultima.classificacao || []).slice(0, 3).map((c) =>
+      el('li', {}, el('strong', {}, `${c.posicao}º ${c.nome}`), ` · ${real(c.total)}${c.eliminado ? ' (faliu)' : ''}`))),
+    el('p', { class: 'texto-mini' }, `${ultima.rodada} rodadas`)) : null;
+  corpo.replaceChildren(...[resumo, el('form', {
     class: 'cartao admin-criar',
     onsubmit: async (ev) => {
       ev.preventDefault();
@@ -169,7 +178,7 @@ function desenharSemSala() {
   el('div', { class: 'admin-campos' },
     el('label', { class: 'rotulo', for: 'capital' }, 'Capital inicial de cada jogador (R$)'), capital,
     el('label', { class: 'rotulo', for: 'meta' }, 'Meta para vencer (R$)'), meta),
-  el('button', { class: 'btn btn-ouro btn-grande', type: 'submit' }, 'Criar sala')));
+  el('button', { class: 'btn btn-ouro btn-grande', type: 'submit' }, 'Criar sala'))].filter(Boolean));
 }
 
 function trocarSenha() {

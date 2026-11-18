@@ -1,9 +1,10 @@
 // Fluxo do jogador: início → entrar → avatar → sala de espera → partida.
 import { rpc, ouvirSala } from './db.js';
-import { $, el, toast, modal, marca, fundoCidade, prepararFoto, icone } from './ui.js';
+import { $, el, toast, modal, marca, fundoCidade, prepararFoto, icone, real, emblema } from './ui.js';
 import { AVATARES, fotoSrc } from './avatares.js';
 import { criarPrincipal } from './principal.js';
 import { textoInstrucoes } from './regras.js';
+import { garantirFotos, foto as fotoDe } from './fotos.js';
 
 const CHAVE = 'milionario.token';
 const app = $('#app');
@@ -49,7 +50,9 @@ function ouvir() {
 
 function decidir() {
   const { eu, sala } = estado;
-  if (eu && sala?.status === 'encerrada') return mostrar('encerrada', telaEncerrada);
+  if (eu && sala?.status === 'encerrada') {
+    return sala.fase === 'fim' && sala.resultado ? mostrar('podio', telaPodio) : mostrar('encerrada', telaEncerrada);
+  }
   if (!eu) {
     if (!sala) return mostrar('sem-sala', telaSemSala);
     return sala.entrada_aberta ? mostrar('entrada', telaEntrada) : mostrar('fechada', telaFechada);
@@ -98,6 +101,48 @@ function telaEncerrada() {
     raiz: capa(el('p', { class: 'capa-aviso' }, 'A sala foi encerrada pelo administrador.'),
       el('button', { class: 'btn btn-ouro', onclick: () => { localStorage.removeItem(CHAVE); estado.eu = null; atualizar(); } }, 'Voltar ao início')),
   };
+}
+
+// ---------------------------------------------------------------------
+// Fim de jogo: pódio + classificação
+// ---------------------------------------------------------------------
+function telaPodio() {
+  const res = estado.sala.resultado;
+  const cl = res.classificacao || [];
+  const euId = estado.eu?.id;
+  const raiz = el('main', { class: 'podio-tela' });
+  document.querySelectorAll('.modal-fundo, .faixa-rodada').forEach((m) => m.remove());
+  document.body.classList.remove('mercado-aberto');
+
+  async function desenhar() {
+    await garantirFotos(estado.sala.id, cl.map((c) => c.id));
+    const degrau = (c, lugar) => c ? el('div', { class: `degrau degrau-${lugar}` + (c.id === euId ? ' sou-eu' : '') },
+      lugar === 1 ? el('span', { class: 'podio-coroa' }, icone('coroa', 30)) : null,
+      el('img', { src: fotoDe(c.id, c.foto), alt: '' }),
+      el('strong', {}, c.nome),
+      el('span', { class: 'podio-total' }, real(c.total)),
+      el('div', { class: 'degrau-bloco' }, el('span', {}, `${lugar}º`))) : el('div', { class: `degrau degrau-${lugar} vazio` });
+    const meu = cl.find((c) => c.id === euId);
+    raiz.replaceChildren(
+      el('div', { class: 'podio-brilho', 'aria-hidden': 'true' }),
+      el('header', { class: 'podio-topo' }, marca('pequena'), el('p', { class: 'podio-texto' }, res.texto)),
+      el('section', { class: 'podio' }, degrau(cl[1], 2), degrau(cl[0], 1), degrau(cl[2], 3)),
+      meu ? el('p', { class: 'podio-meu' }, meu.posicao <= 3 ? `Você terminou em ${meu.posicao}º lugar!` : `Você terminou em ${meu.posicao}º lugar.`) : null,
+      el('section', { class: 'cartao podio-tabela' },
+        el('h2', { class: 'titulo-secao' }, 'Classificação final'),
+        el('p', { class: 'texto-suave' }, `${res.rodada} ${res.rodada === 1 ? 'rodada' : 'rodadas'} · meta de ${real(res.meta)} · desempate: mais dinheiro, depois mais empresas, depois a empresa mais valiosa`),
+        el('div', { class: 'tabela-rolar' }, el('table', { class: 'tabela-precos tabela-final' },
+          el('thead', {}, el('tr', {}, ['', 'Jogador', 'Carteira', 'Patrimônio', 'Dívidas', 'Total', 'Empresas'].map((t) => el('th', {}, t)))),
+          el('tbody', {}, cl.map((c) => el('tr', { class: c.id === euId ? 'sou-eu' : '' },
+            el('td', {}, `${c.posicao}º`),
+            el('td', {}, el('span', { class: 'tabela-jogador' }, el('img', { src: fotoDe(c.id, c.foto), alt: '' }), c.nome, c.eliminado ? el('small', {}, ' (faliu)') : null)),
+            el('td', {}, real(c.carteira)), el('td', {}, real(c.patrimonio)), el('td', {}, real(c.dividas)),
+            el('td', {}, el('strong', {}, real(c.total))),
+            el('td', {}, c.empresas ? `${c.empresas}${c.maior_empresa ? ` · ${c.maior_empresa}` : ''}` : '—'))))))),
+      el('button', { class: 'btn btn-ouro btn-grande', onclick: () => { localStorage.removeItem(CHAVE); estado.eu = null; atualizar(); } }, 'Voltar ao início'));
+  }
+  desenhar();
+  return { raiz };
 }
 
 function telaEntrada() {

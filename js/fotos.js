@@ -13,10 +13,16 @@ export async function garantirFotos(salaId, ids) {
   ultimaBusca = Date.now();
   buscando = rpc('fotos_sala', { p_sala: salaId })
     .then((m) => { for (const [id, img] of Object.entries(m || {})) cache[id] = fotoSrc(img); })
-    .catch(() => {})
+    .catch((e) => console.warn('Não foi possível buscar as fotos dos jogadores (rode o arquivo 08 no Supabase):', e.message))
     .finally(() => { buscando = null; });
   return buscando;
 }
 
-export const foto = (id) => cache[id] || fotoSrc(null);
+// reserva: o avatar pronto ('preset:N') que vem junto com o ranking/mercado
+export const foto = (id, reserva) => cache[id] || fotoSrc(reserva || null);
 export const todasFotos = () => cache;
+export function fotosComReserva(lista) {
+  const m = { ...cache };
+  for (const [id, f] of lista) if (id && !m[id] && f) m[id] = fotoSrc(f);
+  return m;
+}
