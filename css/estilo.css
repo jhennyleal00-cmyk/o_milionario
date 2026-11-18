@@ -351,3 +351,35 @@ img.apagado { opacity: .3; filter: grayscale(1); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
+
+/* =====================================================================
+   Cidade de Neópolis
+   ===================================================================== */
+.cidade-raiz { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: #5f9e4a; touch-action: none; }
+.cidade-canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.cidade-carregando {
+  position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--titulo);
+  font-size: 18px; letter-spacing: .12em; color: var(--ouro-claro); background: #0b0b0d;
+}
+.jogo { pointer-events: none; }
+.jogo > * { pointer-events: auto; }
+.jogo > .cidade-raiz { pointer-events: auto; }
+.jogo .rank-botao { width: 100%; border: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.jogo .rank-botao:hover { background: rgba(214, 168, 64, .1); }
+img.rank-selo { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; }
+
+.modal-empresa { width: min(620px, 100%); }
+.empresa-cartao { display: grid; grid-template-columns: 180px 1fr; gap: 20px; align-items: start; }
+.empresa-logo { width: 100%; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, .45); }
+.empresa-info { display: grid; gap: 8px; }
+.empresa-info .modal-titulo { margin: 0; }
+.empresa-info .texto-suave { margin: 0; font-size: 14px; }
+.empresa-setor { justify-self: start; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #111; background: var(--cor); }
+.empresa-dono { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(214, 168, 64, .1); border: 1px solid var(--linha); }
+.empresa-dono img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 2px solid var(--ouro); }
+.empresa-dono div { display: flex; flex-direction: column; }
+.empresa-dono span { font-size: 13px; color: var(--suave); }
+.empresa-dono.livre { background: rgba(60, 207, 142, .08); }
+@media (max-width: 560px), (max-height: 520px) {
+  .empresa-cartao { grid-template-columns: 120px 1fr; gap: 14px; }
+}

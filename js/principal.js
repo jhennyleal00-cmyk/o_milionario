@@ -1,10 +1,19 @@
-// Tela principal da partida (Etapa 1: cartão do jogador, inflação, faixa de
-// notícias, linha das rodadas, ranking, ajuda). A cidade animada, as notícias,
-// o Mercado de Ações e o Banqueiro entram nas próximas etapas.
+// Tela principal da partida: cidade de Neópolis ao fundo, cartão do jogador,
+// inflação, faixa de notícias, linha das rodadas, ranking e ajuda.
+// Notícias, Mercado de Ações e Banqueiro entram nas próximas etapas.
 import { rpc } from './db.js';
-import { el, real, realCurto, realCompacto, toast, modal, icone } from './ui.js';
+import { el, real, realCompacto, toast, modal, icone } from './ui.js';
 import { fotoSrc } from './avatares.js';
 import { SETORES, textoAjuda } from './regras.js';
+import { marca, logo } from './logos.js';
+import { criarCidade } from './cidade.js';
+import { garantirFotos, foto as fotoDe, todasFotos } from './fotos.js';
+
+let catalogo = null;
+async function carregarCatalogo() {
+  if (!catalogo) catalogo = rpc('catalogo_empresas').then((l) => Object.fromEntries(l.map((e) => [e.id, e]))).catch(() => { catalogo = null; return {}; });
+  return catalogo;
+}
 
 export function criarPrincipal({ token }) {
   let est = null;
@@ -65,8 +74,10 @@ export function criarPrincipal({ token }) {
   const linkAdmin = localStorage.getItem('milionario.admin')
     ? el('a', { class: 'link-admin-jogo', href: 'admin.html', target: '_blank' }, 'Painel do administrador') : null;
 
+  const fundo = el('div', { class: 'cidade-lugar' });
+  let cidade = null;
   const raiz = el('main', { class: 'jogo' },
-    el('div', { class: 'cidade', 'aria-hidden': 'true' }),
+    fundo,
     el('div', { class: 'coluna-esq' }, cartao, inflacao),
     topo,
     el('div', { class: 'coluna-dir' }, btnBanqueiro, ranking),
@@ -76,6 +87,11 @@ export function criarPrincipal({ token }) {
   function atualizar(novo) {
     est = novo;
     const { eu, sala } = est;
+    if (!cidade) {
+      cidade = criarCidade({ semente: sala.id, aoClicarEmpresa: abrirEmpresa });
+      fundo.replaceWith(cidade.raiz);
+      carregarCatalogo();
+    }
     foto.src = fotoSrc(eu.foto);
     nome.textContent = eu.nome;
     vCarteira.textContent = real(eu.carteira);
@@ -99,7 +115,13 @@ export function criarPrincipal({ token }) {
   async function carregarRanking() {
     if (buscandoRanking || !est) return;
     buscandoRanking = true; ultimoRanking = Date.now();
-    try { dadosRanking = await rpc('ranking', { p_sala: est.sala.id }); desenharRanking(); }
+    try {
+      dadosRanking = await rpc('ranking', { p_sala: est.sala.id });
+      const ids = dadosRanking.ricos.map((r) => r.id);
+      await garantirFotos(est.sala.id, ids);
+      cidade?.atualizarEmpresas(dadosRanking.empresas, todasFotos());
+      desenharRanking();
+    }
     catch { /* próxima atualização tenta de novo */ }
     finally { buscandoRanking = false; }
   }
@@ -113,7 +135,7 @@ export function criarPrincipal({ token }) {
     if (abaRanking === 'ricos') {
       corpoRanking.replaceChildren(...dadosRanking.ricos.map((r) => el('div', { class: 'rank-linha' + (r.id === est.eu.id ? ' sou-eu' : '') },
         el('span', { class: 'rank-pos' }, `${r.posicao}º`),
-        el('img', { class: 'rank-foto', src: fotoSrc(r.foto), alt: '' }),
+        el('img', { class: 'rank-foto', src: fotoDe(r.id), alt: '' }),
         el('div', { class: 'rank-info' },
           el('strong', {}, r.nome),
           r.oculto
@@ -121,9 +143,9 @@ export function criarPrincipal({ token }) {
             : el('span', { class: 'rank-sub' }, [`Carteira ${realCompacto(r.carteira)}`, `Patrimônio ${realCompacto(r.patrimonio)}`].map((t) => t.replace(/ /g, '\u00a0')).join(' · '))),
         el('span', { class: 'rank-total' }, r.oculto ? '••••' : 'R$ ' + realCompacto(r.total)))));
     } else {
-      corpoRanking.replaceChildren(...dadosRanking.empresas.map((e) => el('div', { class: 'rank-linha' },
+      corpoRanking.replaceChildren(...dadosRanking.empresas.map((e) => el('button', { class: 'rank-linha rank-botao', onclick: () => { cidade?.focar(e.id); abrirEmpresa(e.id); } },
         el('span', { class: 'rank-pos' }, `${e.posicao}º`),
-        el('span', { class: 'rank-selo', style: `--cor:${SETORES[e.setor]?.cor || '#888'}` }, iniciais(e.nome)),
+        el('img', { class: 'rank-selo', src: marca(e.id), alt: '' }),
         el('div', { class: 'rank-info' },
           el('strong', {}, e.nome),
           el('span', { class: 'rank-sub' }, e.dono_nome ? `Dono: ${e.dono_nome} · ${e.acoes_dono} ações` : 'Disponível')),
@@ -161,10 +183,29 @@ export function criarPrincipal({ token }) {
     });
   }
 
-  return { raiz, atualizar, desmontar: () => {} };
-}
+  async function abrirEmpresa(id) {
+    const cat = (await carregarCatalogo())[id] || {};
+    const e = dadosRanking?.empresas.find((x) => x.id === id) || {};
+    const nomeEmp = e.nome || cat.nome || id;
+    const dono = e.dono_id
+      ? el('div', { class: 'empresa-dono' },
+        el('img', { src: fotoDe(e.dono_id), alt: '' }),
+        el('div', {}, el('strong', {}, e.dono_nome), el('span', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'} · ${real(e.valor)}`)))
+      : el('div', { class: 'empresa-dono livre' }, el('span', { class: 'chip chip-ok' }, 'Disponível'), el('span', {}, 'Ainda não tem dono.'));
+    modal({
+      classe: 'modal-empresa',
+      conteudo: el('div', { class: 'empresa-cartao' },
+        el('img', { class: 'empresa-logo', src: logo(id, nomeEmp), alt: nomeEmp }),
+        el('div', { class: 'empresa-info' },
+          el('span', { class: 'empresa-setor', style: `--cor:${SETORES[cat.setor || e.setor]?.cor || '#888'}` }, SETORES[cat.setor || e.setor]?.nome || ''),
+          el('h2', { class: 'modal-titulo' }, nomeEmp),
+          el('p', { class: 'texto-suave' }, cat.descricao || ''),
+          el('div', { class: 'progresso-linha' }, el('span', {}, 'Valor de 1 ação'), el('strong', {}, real(e.preco ?? cat.preco_inicial))),
+          dono,
+          el('p', { class: 'texto-mini' }, 'Para disputar esta empresa, use o Mercado de Ações.'))),
+      botoes: [{ texto: 'Fechar', classe: 'btn-ouro' }],
+    });
+  }
 
-function iniciais(nome) {
-  const p = nome.replace(/&/g, ' ').split(/\s+/).filter((x) => x.length > 1);
-  return (p.length > 1 ? p[0][0] + p[1][0] : nome.slice(0, 2)).toUpperCase();
+  return { raiz, atualizar, desmontar: () => cidade?.destruir() };
 }
