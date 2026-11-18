@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 200 200" role="img" aria-label="O Milionário">
+  <defs>
+    <linearGradient id="emb-ouro" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbeab0"></stop><stop offset=".45" stop-color="#d6a840"></stop><stop offset="1" stop-color="#7d5814"></stop>
+    </linearGradient>
+    <linearGradient id="emb-ouro2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6dc8e"></stop><stop offset="1" stop-color="#a5791f"></stop>
+    </linearGradient>
+    <radialGradient id="emb-brilho" cx=".5" cy=".38" r=".6">
+      <stop offset="0" stop-color="#3a2e14" stop-opacity=".9"></stop><stop offset="1" stop-color="#0b0b0d" stop-opacity="0"></stop>
+    </radialGradient>
+    <clipPath id="emb-dentro"><circle cx="100" cy="100" r="80"></circle></clipPath>
+  </defs>
+  <circle cx="100" cy="100" r="80" fill="url(#emb-brilho)"></circle>
+  <circle cx="100" cy="100" r="92" fill="none" stroke="url(#emb-ouro)" stroke-width="5"></circle>
+  <circle cx="100" cy="100" r="84" fill="none" stroke="url(#emb-ouro)" stroke-width="1.2" opacity=".55"></circle>
+  <g clip-path="url(#emb-dentro)">
+    <g fill="url(#emb-ouro2)">
+      <rect x="34" y="104" width="18" height="50"></rect><rect x="54" y="78" width="22" height="76"></rect>
+      <rect x="78" y="94" width="16" height="60"></rect><rect x="96" y="56" width="24" height="98"></rect>
+      <path d="M108 44 L108 56 L104 56 Z"></path>
+      <rect x="122" y="84" width="20" height="70"></rect><rect x="144" y="108" width="20" height="46"></rect>
+    </g>
+    <g fill="#0b0b0d" opacity=".55">
+      <rect x="59" y="86" width="4" height="6"></rect><rect x="67" y="86" width="4" height="6"></rect><rect x="59" y="98" width="4" height="6"></rect><rect x="67" y="98" width="4" height="6"></rect><rect x="59" y="110" width="4" height="6"></rect><rect x="67" y="110" width="4" height="6"></rect><rect x="101" y="66" width="4" height="6"></rect><rect x="111" y="66" width="4" height="6"></rect><rect x="101" y="78" width="4" height="6"></rect><rect x="111" y="78" width="4" height="6"></rect><rect x="101" y="90" width="4" height="6"></rect><rect x="111" y="90" width="4" height="6"></rect><rect x="101" y="102" width="4" height="6"></rect><rect x="111" y="102" width="4" height="6"></rect><rect x="127" y="94" width="4" height="6"></rect><rect x="135" y="94" width="4" height="6"></rect><rect x="127" y="106" width="4" height="6"></rect><rect x="135" y="106" width="4" height="6"></rect><rect x="39" y="114" width="4" height="6"></rect><rect x="45" y="114" width="4" height="6"></rect><rect x="82" y="104" width="4" height="6"></rect><rect x="82" y="116" width="4" height="6"></rect><rect x="149" y="118" width="4" height="6"></rect><rect x="157" y="118" width="4" height="6"></rect>
+    </g>
+    <rect x="20" y="154" width="160" height="40" fill="#0b0b0d" opacity=".75"></rect>
+  </g>
+  <polyline points="38,138 66,118 88,128 118,92 150,70" fill="none" stroke="#0b0b0d" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"></polyline>
+  <polyline points="38,138 66,118 88,128 118,92 150,70" fill="none" stroke="#fff4cf" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"></polyline>
+  <path d="M141 64 L160 60 L154 78 Z" fill="#fff4cf" stroke="#0b0b0d" stroke-width="2" stroke-linejoin="round"></path>
+  <path d="M100 160 l3 7 7 3 -7 3 -3 7 -3 -7 -7 -3 7 -3Z" fill="url(#emb-ouro)"></path>
+  <path d="M152 34 l2.4 6 6 2.4 -6 2.4 -2.4 6 -2.4 -6 -6 -2.4 6 -2.4Z" fill="#fff4cf"></path>
+</svg>
