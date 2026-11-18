@@ -92,7 +92,11 @@ function desenhar(r) {
         el('dt', {}, 'Capital inicial'), el('dd', {}, real(sala.capital_inicial)),
         el('dt', {}, 'Meta'), el('dd', {}, real(sala.meta)),
         el('dt', {}, 'Entrada'), el('dd', {}, sala.entrada_aberta ? 'Aberta' : 'Encerrada'),
-        el('dt', {}, 'Jogadores'), el('dd', {}, `${jogadores.length} (${prontos} prontos)`)),
+        el('dt', {}, 'Jogadores'), el('dd', {}, `${jogadores.length} (${prontos} prontos)`),
+        sala.status === 'jogando' ? [
+          el('dt', {}, 'Inflação'), el('dd', {}, `${String(sala.inflacao).replace('.', ',')}%`),
+          el('dt', {}, 'Juros do banqueiro'), el('dd', {}, `${String(sala.juros).replace('.', ',')}%`),
+        ] : null),
       el('div', { class: 'admin-link' },
         el('span', {}, 'Link para os jogadores'),
         el('code', {}, linkJogo()),
@@ -111,6 +115,15 @@ function desenhar(r) {
             if (ok) chamar('admin_iniciar_agora');
           },
         }, 'Iniciar agora') : null,
+        sala.status === 'jogando' ? el('button', {
+          class: 'btn btn-ouro',
+          onclick: async () => {
+            const txt = sala.entrada_aberta
+              ? `Todos vão para a ${sala.rodada + 1}ª rodada e recebem as novas notícias. A partir daí ninguém mais entra na partida.`
+              : `Todos vão para a ${sala.rodada + 1}ª rodada e recebem as novas notícias.`;
+            if (await confirmar('Avançar a rodada?', txt, 'Avançar')) chamar('admin_avancar_rodada');
+          },
+        }, `Avançar para a ${sala.rodada + 1}ª rodada`) : null,
         el('button', {
           class: 'btn btn-perigo',
           onclick: async () => {

@@ -8,6 +8,8 @@ import { SETORES, textoAjuda } from './regras.js';
 import { marca, logo } from './logos.js';
 import { criarCidade } from './cidade.js';
 import { garantirFotos, foto as fotoDe, todasFotos } from './fotos.js';
+import { obterRodada, mostrarNovidades, CATEGORIAS } from './noticias.js';
+import { graficoPreco, variacao, fmtPct } from './graficos.js';
 
 let catalogo = null;
 async function carregarCatalogo() {
@@ -37,16 +39,25 @@ export function criarPrincipal({ token }) {
       el('div', { class: 'linha-valor' }, el('span', {}, 'Patrimônio'), vPatrimonio),
       avisoOculto));
 
-  const inflacao = el('section', { class: 'painel caixa-inflacao' },
-    el('span', { class: 'rotulo-pequeno' }, 'Inflação'),
-    el('strong', { class: 'inflacao-valor' }, '—'),
-    el('span', { class: 'texto-mini' }, 'atualiza depois das notícias'));
+  const vInflacao = el('strong', { class: 'inflacao-valor' }, '—');
+  const vInflacaoVar = el('span', { class: 'inflacao-var' });
+  const vDesemprego = el('span', { class: 'texto-mini inflacao-desemprego' }, 'atualiza depois das notícias');
+  const inflacao = el('button', {
+    class: 'painel caixa-inflacao', 'aria-label': 'Ver o relatório geral do mercado',
+    onclick: () => abrirNovidades('relatorio'),
+  }, el('span', { class: 'rotulo-pequeno' }, 'Inflação'), vInflacao, vInflacaoVar, vDesemprego);
 
   // --- faixa de notícias e linha das rodadas ---
-  const textoFaixa = 'Neópolis abre os negócios  ·  As notícias de cada rodada passam por esta faixa  ·  Fique de olho nas manchetes antes de investir  ·  ';
-  const faixa = el('div', { class: 'painel faixa-noticias', 'aria-label': 'Notícias da rodada' },
+  const faixaTexto = el('div', { class: 'faixa-texto' });
+  const faixa = el('button', { class: 'painel faixa-noticias', 'aria-label': 'Ver as notícias da rodada', onclick: () => abrirNovidades('noticias') },
     el('span', { class: 'faixa-etiqueta' }, 'NOTÍCIAS'),
-    el('div', { class: 'faixa-janela' }, el('div', { class: 'faixa-texto' }, el('span', {}, textoFaixa), el('span', {}, textoFaixa))));
+    el('div', { class: 'faixa-janela' }, faixaTexto));
+  const preencherFaixa = (txt) => {
+    faixaTexto.replaceChildren(el('span', {}, txt), el('span', {}, txt));
+    faixaTexto.style.animationDuration = `${Math.max(30, txt.length * 0.22)}s`;
+  };
+  preencherFaixa('Neópolis abre os negócios  ·  As notícias de cada rodada passam por esta faixa  ·  ');
+  let info = null, rodadaInfo = null;
   const linhaRodadas = el('ol', { class: 'linha-rodadas', 'aria-label': 'Rodadas' });
   const topo = el('div', { class: 'topo' }, faixa, linhaRodadas);
 
@@ -110,6 +121,35 @@ export function criarPrincipal({ token }) {
       }));
     }
     if (Date.now() - ultimoRanking > 3000) carregarRanking();
+    if (rodadaInfo !== sala.rodada) carregarInfo(sala.rodada);
+  }
+
+  async function carregarInfo(r) {
+    rodadaInfo = r;
+    try {
+      const i = await obterRodada(est.sala.id, r);
+      if (rodadaInfo !== r) return;
+      info = i;
+      if (i.noticias.length) preencherFaixa(i.noticias.map((n) => `${(CATEGORIAS[n.categoria]?.nome || '').toUpperCase()}: ${n.texto}`).join('   ·   ') + '   ·   ');
+      if (i.inflacao !== null && i.inflacao !== undefined) {
+        vInflacao.textContent = fmtPct(Number(i.inflacao), 2);
+        const d = i.inflacao_ant === null || i.inflacao_ant === undefined ? 0 : Number(i.inflacao) - Number(i.inflacao_ant);
+        vInflacaoVar.textContent = Math.abs(d) < 0.005 ? '' : `${d > 0 ? '▲' : '▼'} ${fmtPct(Math.abs(d), 2)}`;
+        vInflacaoVar.className = 'inflacao-var ' + (d > 0 ? 'ruim' : 'bom');
+        vInflacao.classList.toggle('deflacao', Number(i.inflacao) < 0);
+        vDesemprego.textContent = `Desemprego: país ${fmtPct(Number(i.desemprego_br))} · Neópolis ${fmtPct(Number(i.desemprego_local))}`;
+      }
+    } catch { rodadaInfo = null; }
+  }
+
+  // Notícias → relatório (chamado pela tela da partida a cada rodada nova)
+  async function abrirNovidades(inicio = 'noticias', aoFechar) {
+    if (!est || document.querySelector('.modal-noticias, .modal-relatorio')) return;
+    try {
+      const i = info && info.rodada === est.sala.rodada ? info : await obterRodada(est.sala.id, est.sala.rodada);
+      if (!i.noticias.length) { aoFechar?.(); return; }
+      mostrarNovidades(i, { inicio, aoFechar });
+    } catch (e) { toast(e.message, 'erro'); }
   }
 
   async function carregarRanking() {
@@ -202,10 +242,27 @@ export function criarPrincipal({ token }) {
           el('p', { class: 'texto-suave' }, cat.descricao || ''),
           el('div', { class: 'progresso-linha' }, el('span', {}, 'Valor de 1 ação'), el('strong', {}, real(e.preco ?? cat.preco_inicial))),
           dono,
+          historicoEmpresa(id),
           el('p', { class: 'texto-mini' }, 'Para disputar esta empresa, use o Mercado de Ações.'))),
       botoes: [{ texto: 'Fechar', classe: 'btn-ouro' }],
     });
   }
 
-  return { raiz, atualizar, desmontar: () => cidade?.destruir() };
+  function historicoEmpresa(id) {
+    const emp = info?.empresas.find((x) => x.id === id);
+    const serie = (emp?.serie || []).map(Number);
+    if (serie.length < 1) return null;
+    const linhas = serie.map((v, i) => ({ r: i, v, pct: i ? (v / serie[i - 1] - 1) * 100 : null })).reverse();
+    return el('div', { class: 'empresa-historico' },
+      el('h3', {}, 'Preço de 1 ação por rodada'),
+      graficoPreco(serie),
+      el('details', {},
+        el('summary', {}, 'Ver os valores de cada rodada'),
+        el('table', { class: 'tabela-precos' },
+          el('thead', {}, el('tr', {}, el('th', {}, 'Rodada'), el('th', {}, 'Preço'), el('th', {}, 'Variação'))),
+          el('tbody', {}, linhas.map((l) => el('tr', {},
+            el('td', {}, l.r === 0 ? 'Início' : `${l.r}ª`), el('td', {}, real(l.v)), el('td', {}, l.pct === null ? '—' : variacao(l.pct))))))));
+  }
+
+  return { raiz, atualizar, abrirNovidades, desmontar: () => cidade?.destruir() };
 }

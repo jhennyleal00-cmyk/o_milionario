@@ -78,6 +78,10 @@ const ICONES = {
   upload: '<path d="M12 16V4"/><path d="M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',
   coroa: '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5Z"/>',
   fechar: '<path d="M6 6l12 12M18 6L6 18"/>',
+  globo: '<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19"/><path d="M12 2.5c2.8 3 2.8 16 0 19M12 2.5c-2.8 3-2.8 16 0 19"/>',
+  governo: '<path d="M3 21h18"/><path d="M5 21V11M9.5 21V11M14.5 21V11M19 21V11"/><path d="M3 11h18"/><path d="M12 3l9 5H3z"/>',
+  obra: '<path d="M4 21V8l8-4 8 4v13"/><path d="M9 21v-6h6v6"/><path d="M2 21h20"/>',
+  sorte: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
 };
 export function icone(nome, tam = 22) {
   const s = el('span', { class: 'icone', 'aria-hidden': 'true' });

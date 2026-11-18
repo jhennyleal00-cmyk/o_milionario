@@ -383,3 +383,79 @@ img.rank-selo { width: 34px; height: 34px; border-radius: 9px; object-fit: cover
 @media (max-width: 560px), (max-height: 520px) {
   .empresa-cartao { grid-template-columns: 120px 1fr; gap: 14px; }
 }
+
+/* =====================================================================
+   Notícias, relatório e gráficos
+   ===================================================================== */
+button.faixa-noticias { width: 100%; padding: 0; border: 1px solid var(--linha); color: var(--texto); font: inherit; cursor: pointer; text-align: left; }
+button.caixa-inflacao { color: var(--texto); font: inherit; text-align: left; cursor: pointer; border: 1px solid var(--linha); }
+button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--linha-forte); }
+.caixa-inflacao { width: 250px; row-gap: 2px; }
+.caixa-inflacao .rotulo-pequeno { grid-column: 1; grid-row: 1; }
+.inflacao-var { grid-column: 1; grid-row: 2; font-size: 12px; font-weight: 700; }
+.inflacao-desemprego { grid-column: 1 / span 2; grid-row: 3; }
+.inflacao-valor { grid-row: 1 / span 2; }
+.inflacao-valor.deflacao { color: var(--azul); }
+.ruim, .indicador-var.ruim, .inflacao-var.ruim { color: var(--vermelho); }
+.bom, .indicador-var.bom, .inflacao-var.bom { color: var(--verde); }
+
+.modal-noticias { width: min(820px, 100%); }
+.cartas-noticias { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.carta-noticia { padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .035); border: 1px solid var(--linha); border-top: 3px solid var(--cor-cat, var(--ouro)); }
+.carta-noticia header { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--cor-cat, var(--ouro-claro)); margin-bottom: 8px; }
+.carta-noticia p { margin: 0; font-size: 16px; line-height: 1.4; }
+.cat-mundo { --cor-cat: #6fb6ff; }
+.cat-politica { --cor-cat: #f6dc8e; }
+.cat-obras { --cor-cat: #f2a65a; }
+.cat-sorte { --cor-cat: #c39bff; }
+
+.modal-relatorio { width: min(1040px, 100%); }
+.indicadores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+.indicador { padding: 10px 12px; border-radius: 12px; background: rgba(214, 168, 64, .08); border: 1px solid var(--linha); display: flex; flex-direction: column; gap: 2px; }
+.indicador-rotulo { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--suave); }
+.indicador strong { font-size: 22px; color: var(--ouro-claro); }
+.indicador-var { font-size: 12px; font-weight: 700; color: var(--suave); }
+.relatorio-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 10px; }
+.relatorio-empresa { padding: 10px; border-radius: 12px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(214, 168, 64, .16); display: grid; gap: 6px; }
+.relatorio-topo { display: grid; grid-template-columns: 26px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; }
+.relatorio-topo img { grid-row: span 2; width: 26px; height: 26px; border-radius: 7px; }
+.relatorio-topo strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-grafico { width: 100%; height: 38px; }
+.relatorio-precos { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; }
+.relatorio-precos span { display: flex; flex-direction: column; }
+.relatorio-precos small { font-size: 10px; color: var(--suave); text-transform: uppercase; letter-spacing: .06em; }
+.relatorio-precos span:last-child { text-align: right; }
+.variacao { font-size: 12px; font-weight: 800; white-space: nowrap; }
+.variacao.sobe { color: var(--verde); }
+.variacao.cai { color: var(--vermelho); }
+.variacao.igual { color: var(--suave); }
+
+.empresa-historico { margin-top: 6px; grid-column: 1 / -1; }
+.empresa-historico h3 { margin: 4px 0 6px; font-size: 13px; color: var(--ouro-claro); letter-spacing: .04em; }
+.grafico { position: relative; }
+.grafico-svg { width: 100%; height: auto; display: block; touch-action: none; }
+.grafico-eixo { font-size: 10px; fill: var(--suave); font-family: var(--corpo); }
+.grafico-dica { position: absolute; top: -6px; min-width: 120px; padding: 6px 10px; border-radius: 10px; background: #1b1b22; border: 1px solid var(--linha-forte); display: flex; flex-direction: column; font-size: 12px; pointer-events: none; box-shadow: var(--sombra); }
+.grafico-dica .dica-rotulo { color: var(--suave); font-size: 11px; }
+.grafico-dica .sobe { color: var(--verde); } .grafico-dica .cai { color: var(--vermelho); }
+.empresa-historico details { margin-top: 8px; }
+.empresa-historico summary { cursor: pointer; color: var(--ouro-claro); font-size: 13px; }
+.tabela-precos { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+.tabela-precos th { text-align: left; font-size: 11px; color: var(--suave); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--linha); }
+.tabela-precos td { padding: 4px 6px; border-bottom: 1px solid rgba(255, 255, 255, .05); }
+.modal-empresa { width: min(720px, 100%); }
+
+@media (max-width: 760px), (max-height: 520px) {
+  .cartas-noticias { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .carta-noticia { padding: 10px 12px; }
+  .carta-noticia p { font-size: 14px; }
+  .indicadores { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .indicador { padding: 6px 8px; }
+  .indicador strong { font-size: 16px; }
+  .relatorio-grade { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .caixa-inflacao { width: 200px; }
+  .modal { padding: 16px; }
+}
+@media (max-width: 520px) and (orientation: portrait) {
+  .cartas-noticias, .indicadores { grid-template-columns: 1fr 1fr; }
+}

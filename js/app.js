@@ -232,7 +232,7 @@ function telaEspera() {
 function telaJogo() {
   const principal = criarPrincipal({ token, atualizarTudo: atualizar });
   const raiz = principal.raiz;
-  let chaveInstr = null;
+  let chaveInstr = null, esperaNoticias = null;
 
   function verAvisos() {
     const sala = estado.sala;
@@ -244,9 +244,16 @@ function telaJogo() {
     }
     const chaveFaixa = `milionario.faixa.${sala.id}`;
     const vista = Number(localStorage.getItem(chaveFaixa) || 0);
+    const chaveNot = `milionario.noticias.${sala.id}`;
+    const lidas = Number(localStorage.getItem(chaveNot) || 0);
+    const verNoticias = () => principal.abrirNovidades('noticias', () => localStorage.setItem(chaveNot, String(sala.rodada)));
     if (sala.rodada > vista) {
       localStorage.setItem(chaveFaixa, String(sala.rodada));
       faixaRodada(sala.rodada);
+      clearTimeout(esperaNoticias);
+      esperaNoticias = setTimeout(() => { esperaNoticias = null; verNoticias(); }, 2700);
+    } else if (sala.rodada > lidas && !esperaNoticias && !document.querySelector('.modal-fundo')) {
+      verNoticias();
     }
   }
 
