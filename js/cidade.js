@@ -32,6 +32,7 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
   aviso.textContent = 'Construindo Neópolis…';
   raiz.append(canvas, aviso);
   const ctx = canvas.getContext('2d');
+  canvas.alvosMarcadores = () => alvos; // posições dos marcadores na tela (usado nos testes)
 
   let pronta = false, ativo = true, raf = 0;
   let W = 0, H = 0, dpr = 1;

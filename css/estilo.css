@@ -617,3 +617,40 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .mercado-carteira { order: 3; width: 100%; flex-direction: row; justify-content: space-between; align-items: baseline; }
   .mercado-abas-movel { order: 4; }
 }
+
+/* =====================================================================
+   Leilões ao vivo
+   ===================================================================== */
+.faixa-fim { margin-bottom: 14px; padding: 4px 14px; border-radius: 999px; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: #1a1205; background: var(--grad-ouro); }
+.disputa { flex-basis: 260px; }
+.disputa.minha { border-color: var(--linha-forte); }
+.disputa.estado-abertura, .disputa.estado-lances { background: rgba(214, 168, 64, .12); box-shadow: 0 0 0 1px rgba(214, 168, 64, .35), 0 8px 26px rgba(214, 168, 64, .12); }
+.disputa.estado-encerrado { opacity: .85; background: rgba(255, 255, 255, .03); }
+.disputa-status { margin: 0; font-size: 13px; display: grid; gap: 6px; }
+.disputa-status p { margin: 0; }
+.disputa-status.espera { color: var(--suave); font-style: italic; }
+.disputa-resultado { margin: 0; display: flex; gap: 6px; align-items: flex-start; font-size: 13px; font-weight: 700; color: var(--ouro-claro); }
+.lance-atual { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: baseline; }
+.lance-atual span:first-child { font-size: 11px; color: var(--suave); text-transform: uppercase; letter-spacing: .06em; }
+.lance-atual strong { font-size: 22px; color: var(--ouro-claro); }
+.lance-atual span:last-child { grid-column: 1 / -1; font-size: 12px; color: var(--suave); }
+.cronometro { display: grid; grid-template-columns: 40px 1fr; gap: 8px; align-items: center; }
+.cron-num { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+.cron-barra { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.cron-barra i { display: block; height: 100%; background: var(--grad-ouro); border-radius: inherit; transition: width .25s linear; }
+.cronometro.urgente .cron-num { color: var(--vermelho); }
+.cronometro.urgente .cron-barra i { background: var(--vermelho); }
+.participantes li.lider span:nth-child(2) { font-weight: 800; color: var(--ouro-claro); }
+.lance-controles { display: grid; gap: 6px; padding-top: 4px; border-top: 1px solid var(--linha); }
+.lance-controles p { margin: 0; }
+.lance-linha { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+.campo-lance { min-height: 38px; text-align: center; font-weight: 800; font-size: 16px; }
+.lance-rapido { display: flex; gap: 4px; flex-wrap: wrap; }
+.lance-rapido .btn { flex: 1; min-width: 44px; padding: 0 6px; }
+.lance-meu { margin: 0; font-size: 12px; color: var(--verde); font-weight: 700; }
+@media (orientation: portrait) and (max-width: 760px) {
+  .leiloes-lista { flex-direction: column; overflow: visible; }
+  .disputa { flex-basis: auto; }
+}
+.mercado-principal { grid-template-columns: minmax(0, 1fr); overflow-x: hidden; }
+.leiloes, .empresas, .mercado-barra { min-width: 0; }

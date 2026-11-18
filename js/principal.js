@@ -58,7 +58,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
     faixaTexto.style.animationDuration = `${Math.max(30, txt.length * 0.22)}s`;
   };
   preencherFaixa('Neópolis abre os negócios  ·  As notícias de cada rodada passam por esta faixa  ·  ');
-  let info = null, rodadaInfo = null;
+  let info = null, rodadaInfo = null, leiloesAbertos = null;
   const linhaRodadas = el('ol', { class: 'linha-rodadas', 'aria-label': 'Rodadas' });
   const topo = el('div', { class: 'topo' }, faixa, linhaRodadas);
 
@@ -133,6 +133,12 @@ export function criarPrincipal({ token, atualizarTudo }) {
     if (Date.now() - ultimoRanking > 3000) carregarRanking();
     if (rodadaInfo !== sala.rodada) carregarInfo(sala.rodada);
     statusMercado.textContent = sala.fase === 'mercado' ? 'Aberto' : 'Leilões';
+    if (sala.fase === 'leiloes' && leiloesAbertos !== sala.rodada) {
+      leiloesAbertos = sala.rodada;
+      raiz.classList.remove('ranking-aberto');
+      mercado.abrirLeiloes();
+      toast('O mercado fechou: os leilões começaram!', 'info');
+    }
     btnMercado.classList.toggle('fechado', sala.fase !== 'mercado');
     mercado.atualizar();
   }

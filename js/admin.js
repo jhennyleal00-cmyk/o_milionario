@@ -96,6 +96,7 @@ function desenhar(r) {
         sala.status === 'jogando' ? [
           el('dt', {}, 'Inflação'), el('dd', {}, `${String(sala.inflacao).replace('.', ',')}%`),
           el('dt', {}, 'Juros do banqueiro'), el('dd', {}, `${String(sala.juros).replace('.', ',')}%`),
+          el('dt', {}, 'Fase'), el('dd', {}, sala.fase === 'mercado' ? `Mercado aberto · ${jogadores.filter((j) => j.finalizou).length} de ${prontos} finalizaram` : 'Leilões ao vivo'),
         ] : null),
       el('div', { class: 'admin-link' },
         el('span', {}, 'Link para os jogadores'),
@@ -118,12 +119,14 @@ function desenhar(r) {
         sala.status === 'jogando' ? el('button', {
           class: 'btn btn-ouro',
           onclick: async () => {
-            const txt = sala.entrada_aberta
-              ? `Todos vão para a ${sala.rodada + 1}ª rodada e recebem as novas notícias. A partir daí ninguém mais entra na partida.`
-              : `Todos vão para a ${sala.rodada + 1}ª rodada e recebem as novas notícias.`;
-            if (await confirmar('Avançar a rodada?', txt, 'Avançar')) chamar('admin_avancar_rodada');
+            const mercadoAberto = sala.fase === 'mercado';
+            const txt = mercadoAberto
+              ? 'O mercado fecha agora, mesmo para quem não finalizou. Se houver disputas, os leilões começam; se não, já começa a próxima rodada.'
+                + (sala.entrada_aberta ? ' A partir daí ninguém mais entra na partida.' : '')
+              : `Os leilões que faltam terminam agora, com o lance que estiver valendo, e todos vão para a ${sala.rodada + 1}ª rodada.`;
+            if (await confirmar(mercadoAberto ? 'Fechar o mercado?' : 'Encerrar os leilões?', txt, mercadoAberto ? 'Fechar' : 'Encerrar')) chamar('admin_avancar_rodada');
           },
-        }, `Avançar para a ${sala.rodada + 1}ª rodada`) : null,
+        }, sala.fase === 'mercado' ? 'Fechar o mercado' : `Encerrar os leilões (ir para a ${sala.rodada + 1}ª rodada)`) : null,
         el('button', {
           class: 'btn btn-perigo',
           onclick: async () => {

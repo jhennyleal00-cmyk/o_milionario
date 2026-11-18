@@ -274,6 +274,7 @@ function mostrarInstrucoes(sala, depois) {
 
 function faixaRodada(n) {
   const f = el('div', { class: 'faixa-rodada', role: 'status' },
+    n > 1 ? el('span', { class: 'faixa-fim' }, `${n - 1}ª rodada terminada`) : null,
     el('span', { class: 'faixa-pre' }, 'Início da'),
     el('strong', {}, `${n}ª Rodada`));
   document.body.append(f);
