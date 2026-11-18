@@ -311,14 +311,6 @@ img.apagado { opacity: .3; filter: grayscale(1); }
   .avatar-grade { grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; }
   .avatar-propria-texto { font-size: 9px; }
 }
-/* celular em pé: aviso para deitar */
-@media (orientation: portrait) and (max-width: 700px) {
-  .jogo::after {
-    content: 'Gire o celular para jogar na horizontal'; position: fixed; inset: 0; z-index: 40;
-    display: grid; place-items: center; padding: 30px; text-align: center; font-family: var(--titulo); font-size: 20px;
-    color: var(--ouro-claro); background: rgba(11, 11, 13, .96);
-  }
-}
 
 /* =====================================================================
    Administrador
@@ -458,4 +450,170 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
 }
 @media (max-width: 520px) and (orientation: portrait) {
   .cartas-noticias, .indicadores { grid-template-columns: 1fr 1fr; }
+}
+
+/* =====================================================================
+   Mercado de Ações
+   ===================================================================== */
+.mercado-status { font-size: 10px !important; color: var(--verde); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.btn-mercado.fechado .mercado-status { color: var(--ouro-claro); }
+.btn-ranking { display: none; }
+
+.mercado {
+  grid-area: 2 / 2 / 5 / 3; z-index: 5; min-height: 0; min-width: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: rgba(13, 13, 17, .95); border: 1px solid var(--linha-forte); border-radius: 18px;
+  box-shadow: var(--sombra); backdrop-filter: blur(10px); animation: subir .2s ease;
+}
+.mercado[hidden] { display: none; }
+.mercado-topo { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--linha); flex-wrap: wrap; }
+.mercado-titulo { display: flex; align-items: center; gap: 8px; color: var(--ouro-claro); flex: 1; min-width: 0; }
+.mercado-titulo h2 { margin: 0; font-family: var(--titulo); font-size: 18px; letter-spacing: .06em; white-space: nowrap; }
+.mercado-carteira { display: none; flex-direction: column; align-items: flex-end; font-size: 11px; color: var(--suave); }
+.mercado-carteira strong { font-size: 14px; color: var(--texto); }
+.mercado-carteira strong.negativo { color: var(--vermelho); }
+.mercado-abas-movel { display: none; margin: 0; }
+.mercado-corpo { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 240px; }
+.mercado-principal { overflow: auto; padding: 12px 14px 16px; display: grid; gap: 12px; align-content: start; }
+.mercado h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--suave); }
+
+.leiloes .abas { max-width: 380px; margin: 0 0 8px; }
+.leiloes-lista { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; min-height: 60px; }
+.vazio { margin: 6px 0; font-size: 13px; }
+.disputa { flex: 0 0 230px; padding: 10px; border-radius: 12px; background: rgba(214, 168, 64, .07); border: 1px solid var(--linha); display: grid; gap: 6px; align-content: start; }
+.disputa header { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; }
+.disputa header img { width: 30px; height: 30px; border-radius: 8px; }
+.disputa header div { display: flex; flex-direction: column; min-width: 0; }
+.disputa header strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.participantes { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: p; }
+.participantes li { display: grid; grid-template-columns: 16px 24px 1fr auto; gap: 6px; align-items: center; font-size: 13px; counter-increment: p; }
+.participantes li::before { content: counter(p) 'º'; font-size: 11px; color: var(--ouro-claro); font-weight: 800; }
+.participantes img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+.disputa-status { margin: 0; }
+
+.mercado-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid var(--linha); flex-wrap: wrap; }
+.mercado-barra p { margin: 0; font-size: 13px; color: var(--suave); }
+.mercado-barra strong { color: var(--texto); }
+
+.abas-setor { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; }
+.abas-setor .aba { flex: 0 0 auto; padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px; }
+.ponto-setor { width: 8px; height: 8px; border-radius: 50%; background: var(--cor); }
+.empresas-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.emp-cartao { padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(214, 168, 64, .18); display: grid; gap: 8px; }
+.emp-cartao.meu { border-color: var(--ouro); box-shadow: inset 0 0 0 1px rgba(214, 168, 64, .25); }
+.emp-cartao header { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; }
+.emp-cartao header img { width: 30px; height: 30px; border-radius: 8px; }
+.emp-cartao header strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.emp-grafico { border: 0; padding: 4px; border-radius: 10px; background: rgba(0, 0, 0, .25); cursor: pointer; min-height: 54px; display: grid; place-items: center; }
+.emp-grafico:hover { background: rgba(214, 168, 64, .1); }
+.emp-grafico .mini-grafico { height: 46px; }
+.emp-preco { display: flex; justify-content: space-between; align-items: flex-end; }
+.emp-preco span { display: flex; flex-direction: column; }
+.emp-preco small, .emp-dono small { font-size: 10px; color: var(--suave); text-transform: uppercase; letter-spacing: .06em; }
+.emp-preco b { font-size: 16px; }
+.emp-dono { display: flex; align-items: center; gap: 8px; font-size: 13px; min-height: 30px; }
+.emp-dono img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--ouro); }
+.emp-dono span { display: flex; flex-direction: column; }
+.emp-botoes { display: flex; gap: 6px; }
+.emp-botoes .btn { flex: 1; }
+
+.forum { border-left: 1px solid var(--linha); display: flex; flex-direction: column; min-height: 0; padding: 12px 10px 10px 12px; }
+.forum-lista { list-style: none; margin: 0; padding: 0 4px 0 0; overflow: auto; display: grid; gap: 6px; align-content: start; flex: 1; }
+.forum-lista li { font-size: 13px; padding: 7px 9px; border-radius: 10px; background: rgba(255, 255, 255, .035); border-left: 3px solid var(--linha-forte); display: grid; gap: 2px; }
+.forum-hora { font-size: 10px; color: var(--suave); }
+.forum-disputa { border-left-color: #f2a65a !important; }
+.forum-venda { border-left-color: var(--azul) !important; }
+.forum-leilao { border-left-color: var(--verde) !important; }
+.forum-sistema { border-left-color: var(--ouro) !important; background: rgba(214, 168, 64, .08) !important; }
+
+.modal-qtd { width: min(440px, 100%); }
+.qtd-linha { display: flex; gap: 8px; align-items: center; }
+.qtd-linha .btn { min-width: 44px; padding: 0 12px; }
+.campo-qtd { text-align: center; font-size: 18px; font-weight: 700; max-width: 120px; }
+.qtd-resumo { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 14px 0 0; font-size: 14px; color: var(--suave); }
+.qtd-resumo strong { color: var(--texto); text-align: right; }
+.qtd-resumo em { grid-column: 1 / -1; color: var(--ouro-claro); font-size: 13px; }
+
+/* telas médias e celular deitado: o mercado ocupa a tela toda (com a carteira no topo) */
+@media (max-width: 1180px), (max-height: 560px) {
+  .mercado { position: fixed; inset: 0; border-radius: 0; z-index: 30; }
+  .mercado-carteira { display: flex; }
+}
+@media (max-width: 900px), (max-height: 560px) {
+  .mercado-corpo { grid-template-columns: 1fr; }
+  .mercado-abas-movel { display: grid; width: 190px; }
+  .mercado[data-movel='empresas'] .forum { display: none; }
+  .mercado[data-movel='forum'] .mercado-principal { display: none; }
+  .forum { border-left: 0; padding: 12px 14px; }
+  .empresas-grade { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+}
+
+/* =====================================================================
+   Celular em pé
+   ===================================================================== */
+@media (orientation: portrait) and (max-width: 760px) {
+  .jogo::after { content: none !important; display: none !important; }
+  .jogo {
+    grid-template-columns: 1fr; grid-template-rows: auto auto 1fr;
+    grid-template-areas: "esq" "topo" "."; gap: 8px; padding: 8px 8px 0;
+  }
+  .coluna-esq { flex-direction: row; align-items: stretch; gap: 8px; }
+  .cartao-jogador { flex: 1; min-width: 0; grid-template-columns: 46px 1fr; gap: 10px; padding: 8px 10px; }
+  .cartao-foto { width: 46px; height: 46px; }
+  .cartao-nome { font-size: 14px; }
+  .linha-valor, .linha-valor .valor { font-size: 12px; }
+  .btn-icone { width: 28px; height: 28px; }
+  .caixa-inflacao { width: 96px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: center; gap: 0; }
+  .caixa-inflacao .inflacao-valor { font-size: 17px; }
+  .caixa-inflacao .inflacao-desemprego { display: none; }
+  .faixa-noticias { height: 32px; font-size: 13px; }
+  .faixa-etiqueta { padding: 0 8px; font-size: 10px; }
+  .rodada { height: 22px; min-width: 26px; font-size: 11px; }
+
+  .coluna-dir { display: contents; }
+  .btn-ajuda, .btn-ranking, .btn-banqueiro, .btn-mercado { position: fixed; z-index: 8; }
+  .btn-ajuda { left: 10px; bottom: 16px; padding: 10px; }
+  .btn-ajuda span:last-child { display: none; }
+  .btn-ranking {
+    display: inline-flex; left: 62px; bottom: 16px; align-items: center; gap: 6px; padding: 8px 12px 8px 10px;
+    border-radius: 999px; border: 1px solid var(--linha); background: var(--painel); color: var(--ouro-claro); font-weight: 600; cursor: pointer;
+  }
+  .btn-mercado { left: 50%; bottom: 8px; transform: translateX(-50%); width: 92px; height: 92px; }
+  .btn-mercado:hover { transform: translateX(-50%) scale(1.03); }
+  .btn-mercado span:nth-child(2) { font-size: 10px; max-width: 70px; }
+  .btn-banqueiro { right: 10px; bottom: 14px; width: 58px; height: 58px; }
+  .btn-banqueiro span:last-child { display: none; }
+  .ranking {
+    display: none; position: fixed; left: 8px; right: 8px; bottom: 108px; max-height: 56dvh; z-index: 9;
+    background: rgba(13, 13, 17, .96);
+  }
+  .jogo.ranking-aberto .ranking { display: flex; }
+  .jogo.ranking-aberto .btn-ranking { border-color: var(--ouro); background: rgba(214, 168, 64, .18); }
+  .rank-sub { display: block; }
+
+  .mercado { position: fixed; inset: 0; border-radius: 0; z-index: 30; }
+  .mercado-carteira { display: flex; }
+  .mercado-titulo h2 { font-size: 16px; }
+  .mercado-abas-movel { order: 5; width: 100%; }
+  .empresas-grade { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .emp-cartao { padding: 8px; }
+  .disputa { flex-basis: 210px; }
+
+  .cartas-noticias { grid-template-columns: 1fr; }
+  .indicadores { grid-template-columns: 1fr 1fr; }
+  .relatorio-grade { grid-template-columns: 1fr 1fr; }
+  .empresa-cartao { grid-template-columns: 1fr; }
+  .empresa-logo { width: 140px; }
+  .modal { padding: 16px; max-height: calc(100dvh - 20px); }
+  .modal-fundo { padding: 10px; }
+}
+.caixa-inflacao .inflacao-desemprego { grid-column: 1 / span 2; grid-row: 3; margin-top: 2px; }
+@media (orientation: portrait) and (max-width: 760px) {
+  .btn-ranking { padding: 10px; }
+  .btn-ranking span:last-child { display: none; }
+  .mercado-topo { gap: 6px 10px; }
+  .mercado-titulo { order: 1; }
+  .mercado-topo > .btn-icone { order: 2; }
+  .mercado-carteira { order: 3; width: 100%; flex-direction: row; justify-content: space-between; align-items: baseline; }
+  .mercado-abas-movel { order: 4; }
 }

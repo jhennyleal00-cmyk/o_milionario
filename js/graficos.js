@@ -81,7 +81,7 @@ export function graficoPreco(serie, { largura = 520, altura = 200 } = {}) {
     dica.replaceChildren(
       el('span', { class: 'dica-rotulo' }, i === 0 ? 'Valor inicial' : `Rodada ${i}`),
       el('strong', {}, real(serie[i])),
-      pct === null ? null : el('span', { class: pct >= 0 ? 'sobe' : 'cai' }, `${pct >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(pct))}`));
+      ...(pct === null ? [] : [el('span', { class: pct >= 0 ? 'sobe' : 'cai' }, `${pct >= 0 ? '▲' : '▼'} ${fmtPct(Math.abs(pct))}`)]));
     dica.hidden = false;
     const xp = (x(i) / w) * ret.width;
     dica.style.left = `${Math.min(ret.width - 120, Math.max(0, xp - 60))}px`;

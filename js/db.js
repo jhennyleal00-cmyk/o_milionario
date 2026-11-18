@@ -28,6 +28,9 @@ export function ouvirSala(salaId, aoMudar) {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'salas', filter: `id=eq.${salaId}` }, avisar)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'jogadores', filter: `sala_id=eq.${salaId}` }, avisar)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'empresas_sala', filter: `sala_id=eq.${salaId}` }, avisar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'disputas', filter: `sala_id=eq.${salaId}` }, avisar)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'disputa_participantes', filter: `sala_id=eq.${salaId}` }, avisar)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'forum', filter: `sala_id=eq.${salaId}` }, avisar)
     .subscribe();
   return () => { clearTimeout(espera); sb.removeChannel(canal); };
 }

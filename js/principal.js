@@ -10,6 +10,7 @@ import { criarCidade } from './cidade.js';
 import { garantirFotos, foto as fotoDe, todasFotos } from './fotos.js';
 import { obterRodada, mostrarNovidades, CATEGORIAS } from './noticias.js';
 import { graficoPreco, variacao, fmtPct } from './graficos.js';
+import { criarMercado } from './mercado.js';
 
 let catalogo = null;
 async function carregarCatalogo() {
@@ -17,7 +18,7 @@ async function carregarCatalogo() {
   return catalogo;
 }
 
-export function criarPrincipal({ token }) {
+export function criarPrincipal({ token, atualizarTudo }) {
   let est = null;
   let abaRanking = 'ricos';
   let ultimoRanking = 0, buscandoRanking = false, dadosRanking = null;
@@ -74,10 +75,19 @@ export function criarPrincipal({ token }) {
   const ranking = el('section', { class: 'painel ranking' }, el('h2', { class: 'painel-titulo' }, 'Ranking'), abas, corpoRanking);
 
   // --- base: mercado e ajuda ---
+  const mercado = criarMercado({
+    token, abrirEmpresa: (id) => abrirEmpresa(id), obterInfo: () => info,
+    aoMudar: () => { atualizarTudo?.(); ultimoRanking = 0; carregarRanking(); },
+  });
+  const statusMercado = el('span', { class: 'mercado-status' });
   const btnMercado = el('button', {
     class: 'btn-redondo btn-mercado', 'aria-label': 'Mercado de Ações',
-    onclick: () => toast('O Mercado de Ações abre na Etapa 4.', 'info'),
-  }, icone('mercado', 38), el('span', {}, 'Mercado de Ações'));
+    onclick: () => { raiz.classList.remove('ranking-aberto'); mercado.alternar(); },
+  }, icone('mercado', 38), el('span', {}, 'Mercado de Ações'), statusMercado);
+  const btnRanking = el('button', {
+    class: 'btn-ranking', 'aria-label': 'Ranking',
+    onclick: () => { mercado.fechar(); raiz.classList.toggle('ranking-aberto'); },
+  }, icone('coroa', 22), el('span', {}, 'Ranking'));
   const btnAjuda = el('button', {
     class: 'btn-ajuda', 'aria-label': 'Ajuda',
     onclick: () => modal({ titulo: 'Como jogar', conteudo: textoAjuda(est.sala), classe: 'modal-largo', botoes: [{ texto: 'Fechar', classe: 'btn-ouro' }] }),
@@ -92,7 +102,7 @@ export function criarPrincipal({ token }) {
     el('div', { class: 'coluna-esq' }, cartao, inflacao),
     topo,
     el('div', { class: 'coluna-dir' }, btnBanqueiro, ranking),
-    btnMercado, btnAjuda, linkAdmin);
+    btnMercado, btnAjuda, btnRanking, mercado.raiz, linkAdmin);
 
   // -------------------------------------------------------------------
   function atualizar(novo) {
@@ -122,6 +132,9 @@ export function criarPrincipal({ token }) {
     }
     if (Date.now() - ultimoRanking > 3000) carregarRanking();
     if (rodadaInfo !== sala.rodada) carregarInfo(sala.rodada);
+    statusMercado.textContent = sala.fase === 'mercado' ? 'Aberto' : 'Leilões';
+    btnMercado.classList.toggle('fechado', sala.fase !== 'mercado');
+    mercado.atualizar();
   }
 
   async function carregarInfo(r) {
