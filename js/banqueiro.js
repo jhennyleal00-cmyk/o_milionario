@@ -46,8 +46,10 @@ export async function abrirBanqueiro({ token, aoMudar }) {
         el('p', { class: 'texto-suave' }, dados.eliminado ? 'Você está fora da partida.' : 'Sem limite disponível agora. Pague um contrato para liberar limite.'));
     } else {
       const min = Number(L.minimo), max = Number(L.disponivel);
-      const valor = el('input', { class: 'campo', type: 'number', min: String(min), max: String(max), step: '1000', value: String(Math.round(min)), inputmode: 'numeric', id: 'valor-emprestimo' });
-      const deslizar = el('input', { type: 'range', class: 'banco-deslizar', min: String(min), max: String(max), step: String(Math.max(1, Math.round((max - min) / 200))), value: String(min), 'aria-label': 'Valor do empréstimo' });
+      // o mínimo pode ter centavos: arredonda para cima (para baixo ficaria abaixo do mínimo)
+      const inicial = Math.min(max, Math.ceil(min));
+      const valor = el('input', { class: 'campo', type: 'number', min: String(min), max: String(max), step: 'any', value: String(inicial), inputmode: 'decimal', id: 'valor-emprestimo' });
+      const deslizar = el('input', { type: 'range', class: 'banco-deslizar', min: String(min), max: String(max), step: String(Math.max(1, Math.round((max - min) / 200))), value: String(inicial), 'aria-label': 'Valor do empréstimo' });
       const opcoes = el('div', { class: 'banco-rodadas', role: 'radiogroup', 'aria-label': 'Quando pagar' });
       const resumo = el('div', { class: 'banco-resumo' });
       const atualizar = () => {
@@ -78,7 +80,8 @@ export async function abrirBanqueiro({ token, aoMudar }) {
         resumo,
         el('button', {
           class: 'btn btn-ouro btn-grande', onclick: async () => {
-            const v = Number(valor.value) || 0;
+            const v = Math.min(max, Math.max(min, Number(valor.value) || 0));
+            valor.value = String(v);
             const taxa = Math.max(juros, 18) + 5 * (rodadas - 1);
             const ok = await confirmar('Assinar o contrato?',
               `Você recebe ${real(v)} agora e paga ${real(v * (1 + taxa / 100))} na ${dados.rodada + rodadas}ª rodada (o valor sai da carteira automaticamente, se você não pagar antes).`, 'Assinar');

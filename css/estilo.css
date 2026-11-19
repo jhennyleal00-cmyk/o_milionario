@@ -498,7 +498,6 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
 .abas-setor { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 10px; }
 .abas-setor .aba { flex: 0 0 auto; padding: 6px 10px; display: inline-flex; align-items: center; gap: 6px; }
 .ponto-setor { width: 8px; height: 8px; border-radius: 50%; background: var(--cor); }
-.empresas-grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .emp-cartao { padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(214, 168, 64, .18); display: grid; gap: 8px; }
 .emp-cartao.meu { border-color: var(--ouro); box-shadow: inset 0 0 0 1px rgba(214, 168, 64, .25); }
 .emp-cartao header { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; }
@@ -545,7 +544,6 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .mercado[data-movel='empresas'] .forum { display: none; }
   .mercado[data-movel='forum'] .mercado-principal { display: none; }
   .forum { border-left: 0; padding: 12px 14px; }
-  .empresas-grade { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 }
 
 /* =====================================================================
@@ -595,7 +593,6 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .mercado-carteira { display: flex; }
   .mercado-titulo h2 { font-size: 16px; }
   .mercado-abas-movel { order: 5; width: 100%; }
-  .empresas-grade { grid-template-columns: 1fr 1fr; gap: 8px; }
   .emp-cartao { padding: 8px; }
   .disputa { flex-basis: 210px; }
 
@@ -817,3 +814,26 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
 .admin-codigo { padding: 12px; border-radius: 12px; border: 1px dashed var(--linha-forte); text-align: center; }
 .admin-codigo p { margin: 0 0 8px; font-size: 13px; }
 .admin-codigo-valor { display: inline-block; margin: 4px 0 8px; font-size: 26px; letter-spacing: .14em; font-weight: 700; color: var(--ouro-claro); }
+
+/* =====================================================================
+   Empresas do mercado: fileira com barra de rolagem horizontal
+   (a barra é desenhada pelo jogo, para aparecer também no celular)
+   ===================================================================== */
+.empresas-grade {
+  display: grid; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: minmax(200px, 230px);
+  gap: 10px; overflow-x: auto; overscroll-behavior-x: contain;
+  padding-bottom: 4px; scrollbar-width: none;
+}
+.empresas-grade::-webkit-scrollbar { display: none; }
+.empresas-grade > * { min-width: 0; }
+.grade-trilho { position: relative; height: 12px; margin: 8px 2px 2px; border-radius: 999px; cursor: pointer; touch-action: none;
+  background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(214, 168, 64, .18); }
+.grade-trilho i { position: absolute; top: 2px; bottom: 2px; left: 0; width: 30%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--ouro-claro), var(--ouro)); box-shadow: 0 0 10px rgba(214, 168, 64, .35); transition: background .15s; }
+.grade-trilho:hover i, .grade-trilho.arrastando i { background: var(--ouro-claro); }
+.grade-trilho.sem-rolagem { visibility: hidden; height: 0; margin: 0; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .empresas-grade { grid-auto-columns: minmax(168px, 46%); gap: 8px; }
+  .grade-trilho { height: 14px; }
+}
+.forum-banco { border-left-color: #b48cff !important; background: rgba(180, 140, 255, .07) !important; }
