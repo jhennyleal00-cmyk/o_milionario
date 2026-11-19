@@ -780,3 +780,40 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .degrau-2 .degrau-bloco { height: 72px; }
   .degrau-3 .degrau-bloco { height: 52px; }
 }
+
+/* =====================================================================
+   Painel só no aparelho do administrador · bots
+   ===================================================================== */
+.btn-link { background: none; border: 0; color: var(--suave); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 6px; min-height: 0; }
+.btn-link:hover { color: var(--ouro-claro); }
+.aviso-caixa { margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45;
+  background: rgba(214, 168, 64, .1); border: 1px solid var(--linha); color: var(--ouro-claro); }
+.admin-bloqueio { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.admin-bloqueio .btn-grande { width: 100%; margin-top: 6px; }
+.admin-cadeado { display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; color: var(--ouro-claro);
+  background: rgba(214, 168, 64, .1); border: 1px solid var(--linha); }
+
+.selo-bot { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 1px 7px; border-radius: 999px; vertical-align: 2px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #9fd3ff; background: rgba(90, 160, 220, .14); border: 1px solid rgba(120, 180, 235, .3); }
+
+.admin-bots { border: 0; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+.admin-bots legend { margin-bottom: 8px; padding: 0; }
+.admin-bot { display: grid; grid-template-columns: auto 40px 1fr; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  background: rgba(255, 255, 255, .03); border: 1px solid transparent; transition: border-color .15s, background .15s; }
+.admin-bot:has(input:checked) { border-color: var(--linha-forte); background: rgba(214, 168, 64, .08); }
+.admin-bot input { width: 18px; height: 18px; accent-color: var(--ouro); }
+.admin-bot img { width: 40px; height: 40px; border-radius: 50%; }
+.admin-bot span { display: grid; gap: 2px; }
+.admin-bot small { color: var(--suave); font-size: 12px; line-height: 1.4; }
+.admin-botoes-bots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.admin-botoes-bots .btn { gap: 6px; }
+
+.admin-aparelhos { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.admin-aparelhos li { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.admin-aparelhos li > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; }
+.admin-aparelhos small { color: var(--suave); font-size: 11px; }
+.admin-aparelho-icone { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: var(--ouro-claro); background: rgba(214, 168, 64, .1); }
+.admin-codigo:empty { display: none; }
+.admin-codigo { padding: 12px; border-radius: 12px; border: 1px dashed var(--linha-forte); text-align: center; }
+.admin-codigo p { margin: 0 0 8px; font-size: 13px; }
+.admin-codigo-valor { display: inline-block; margin: 4px 0 8px; font-size: 26px; letter-spacing: .14em; font-weight: 700; color: var(--ouro-claro); }

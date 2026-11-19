@@ -78,7 +78,8 @@ function mostrar(nome, fabrica) {
 function capa(...conteudo) {
   return el('main', { class: 'capa' },
     el('div', { class: 'capa-centro' }, marca('grande'), ...conteudo),
-    el('a', { class: 'link-admin', href: 'admin.html' }, 'Administrador'));
+    // o atalho do painel só aparece no aparelho do administrador
+    localStorage.getItem('milionario.aparelho') ? el('a', { class: 'link-admin', href: 'admin.html' }, 'Administrador') : null);
 }
 
 function telaSemSala() {
@@ -252,7 +253,7 @@ function telaEspera() {
       contagem.textContent = `${prontos} de ${js.length} prontos`;
       lista.replaceChildren(...js.map((j) => el('div', { class: 'espera-jogador' + (j.id === estado.eu?.id ? ' sou-eu' : '') },
         el('img', { src: j.pronto ? fotoSrc(j.foto) : AVATARES[0], alt: '', class: j.pronto ? '' : 'apagado' }),
-        el('strong', {}, j.pronto ? j.nome : 'Escolhendo avatar…'),
+        el('strong', {}, j.pronto ? j.nome : 'Escolhendo avatar…', j.bot ? el('span', { class: 'selo-bot' }, icone('robo', 13), 'Bot') : null),
         el('span', { class: 'chip ' + (j.pronto ? 'chip-ok' : 'chip-espera') }, j.pronto ? 'Pronto' : 'Escolhendo'))));
     } catch { /* tenta de novo no próximo aviso */ }
   }
@@ -330,6 +331,18 @@ function faixaRodada(n) {
 // ---------------------------------------------------------------------
 setInterval(atualizar, 4000);
 setInterval(() => { if (token()) rpc('sinal', { p_token: token() }).catch(() => {}); }, 12000);
+
+// Pulso da partida: faz os bots jogarem e confere se o mercado já pode fechar.
+// Mais rápido durante os leilões (os bots precisam responder aos lances).
+let ultimoPulso = 0;
+setInterval(() => {
+  const s = estado.sala;
+  if (!token() || !estado.eu || s?.status !== 'jogando') return;
+  const intervalo = s.fase === 'leiloes' ? 1500 : (s.bots ? 3000 : 6000);
+  if (Date.now() - ultimoPulso < intervalo - 50) return;
+  ultimoPulso = Date.now();
+  rpc('pulso', { p_token: token() }).catch(() => {});
+}, 500);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) atualizar(); });
 if (token()) rpc('sinal', { p_token: token() }).catch(() => {});
 atualizar();
