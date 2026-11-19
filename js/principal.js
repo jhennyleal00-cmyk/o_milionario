@@ -49,8 +49,8 @@ export function criarPrincipal({ token, atualizarTudo }) {
   const vInflacaoVar = el('span', { class: 'inflacao-var' });
   const vDesemprego = el('span', { class: 'texto-mini inflacao-desemprego' }, 'atualiza depois das notícias');
   const inflacao = el('button', {
-    class: 'painel caixa-inflacao', 'aria-label': 'Ver o relatório geral do mercado',
-    onclick: () => abrirNovidades('relatorio'),
+    class: 'painel caixa-inflacao', 'aria-label': 'Ver o balanço geral do mercado',
+    onclick: () => abrirNovidades('balanco'),
   }, el('span', { class: 'rotulo-pequeno' }, 'Inflação'), vInflacao, vInflacaoVar, vDesemprego);
 
   // --- faixa de notícias e linha das rodadas ---
@@ -102,6 +102,11 @@ export function criarPrincipal({ token, atualizarTudo }) {
     class: 'btn-ajuda', 'aria-label': 'Ajuda',
     onclick: () => modal({ titulo: 'Como jogar', conteudo: textoAjuda(est.sala), classe: 'modal-largo', botoes: [{ texto: 'Fechar', classe: 'btn-ouro' }] }),
   }, icone('ajuda', 24), el('span', {}, 'Ajuda'));
+  // mensagens da rodada (notícias, balanço, ranking e presentes), a qualquer hora
+  const btnMensagens = el('button', {
+    class: 'btn-mensagens', 'aria-label': 'Mensagens da rodada', title: 'Mensagens da rodada',
+    onclick: () => abrirNovidades('noticias'),
+  }, icone('mensagem', 22), el('span', { class: 'btn-rotulo' }, 'Mensagens'), el('span', { class: 'selo-presente', hidden: true, title: 'Presente aos acionistas nesta rodada' }, icone('presente', 13)));
   const linkAdmin = localStorage.getItem('milionario.admin')
     ? el('a', { class: 'link-admin-jogo', href: 'admin.html', target: '_blank' }, 'Painel do administrador') : null;
 
@@ -112,7 +117,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
     el('div', { class: 'coluna-esq' }, cartao, inflacao),
     topo,
     el('div', { class: 'coluna-dir' }, btnBanqueiro, ranking),
-    btnMercado, btnAjuda, btnRanking, mercado.raiz, linkAdmin);
+    btnMercado, el('div', { class: 'base-botoes' }, btnAjuda, btnMensagens), btnRanking, mercado.raiz, linkAdmin);
 
   // -------------------------------------------------------------------
   function atualizar(novo) {
@@ -140,7 +145,10 @@ export function criarPrincipal({ token, atualizarTudo }) {
       linhaRodadas.replaceChildren(...Array.from({ length: 30 }, (_, i) => {
         const n = sala.rodada + i;
         const cobra = cobrancas.includes(n);
-        return el('li', { class: 'rodada' + (i === 0 ? ' atual' : '') + (cobra ? ' cobranca' : ''), title: cobra ? 'Cobrança do banqueiro nesta rodada' : null },
+        const presente = n % 5 === 0;
+        const dica = [presente ? 'Presente aos acionistas nesta rodada' : null, cobra ? 'Cobrança do banqueiro nesta rodada' : null].filter(Boolean).join(' · ');
+        return el('li', { class: 'rodada' + (i === 0 ? ' atual' : '') + (cobra ? ' cobranca' : '') + (presente ? ' presente' : ''), title: dica || null },
+          presente ? el('span', { class: 'presente-icone', 'aria-label': 'presente aos acionistas' }, icone('presente', 12)) : null,
           cobra ? el('span', { class: 'cobranca-icone', 'aria-label': 'cobrança' }, 'R$') : null,
           i === 0 ? `Rodada ${n}` : String(n));
       }));
@@ -170,6 +178,8 @@ export function criarPrincipal({ token, atualizarTudo }) {
       const i = await obterRodada(est.sala.id, r);
       if (rodadaInfo !== r) return;
       info = i;
+      btnMensagens.querySelector('.selo-presente').hidden = !i.presente;
+      btnMensagens.classList.toggle('tem-presente', !!i.presente);
       atualizarCidade();
       if (i.noticias.length) preencherFaixa(i.noticias.map((n) => `${(CATEGORIAS[n.categoria]?.nome || '').toUpperCase()}: ${n.texto}`).join('   ·   ') + '   ·   ');
       if (i.inflacao !== null && i.inflacao !== undefined) {
@@ -183,15 +193,22 @@ export function criarPrincipal({ token, atualizarTudo }) {
     } catch { rodadaInfo = null; }
   }
 
-  // Notícias → relatório (chamado pela tela da partida a cada rodada nova)
-  async function abrirNovidades(inicio = 'noticias', aoFechar) {
-    if (!est || document.querySelector('.modal-noticias, .modal-relatorio')) return;
+  // Mensagens da rodada em abas (abrem sozinhas a cada rodada nova e pelo botão Mensagens)
+  async function abrirNovidades(aba = 'noticias', aoFechar) {
+    if (!est) return;
+    const aberta = document.querySelector('.modal-mensagens');
+    if (aberta) {
+      if (Number(aberta.dataset.rodada) === est.sala.rodada) return;
+      aberta.closest('.modal-fundo')?.remove();          // mensagens de uma rodada que já passou
+    }
     try {
       const i = info && info.rodada === est.sala.rodada ? info : await obterRodada(est.sala.id, est.sala.rodada);
+      if (document.querySelector('.modal-mensagens')) return;
       if (!i.noticias.length) { aoFechar?.(); return; }
+      if (!dadosRanking) { ultimoRanking = 0; await carregarRanking(); }
       const donos = Object.fromEntries((dadosRanking?.empresas || []).map((e) => [e.id,
         { dono_id: e.dono_id, dono_nome: e.dono_nome, acoes_dono: e.acoes_dono, dono_foto: e.dono_foto }]));
-      mostrarNovidades(i, { inicio, aoFechar, euId: est.eu.id, donos });
+      mostrarNovidades(i, { aba, aoFechar, euId: est.eu.id, donos, ranking: dadosRanking });
     } catch (e) { toast(e.message, 'erro'); }
   }
 
