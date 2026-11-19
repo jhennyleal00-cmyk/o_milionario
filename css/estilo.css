@@ -837,3 +837,23 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .grade-trilho { height: 14px; }
 }
 .forum-banco { border-left-color: #b48cff !important; background: rgba(180, 140, 255, .07) !important; }
+
+/* =====================================================================
+   Cartões das empresas: nada sai do cartão (celular estreito, empresa em disputa)
+   ===================================================================== */
+.emp-cartao { grid-template-columns: minmax(0, 1fr); overflow: hidden; min-width: 0; }
+.emp-cartao > * { min-width: 0; }
+.emp-cartao header { min-width: 0; }
+.emp-cartao header img, .emp-cartao header .btn-sobre { flex: 0 0 auto; }
+.emp-em-disputa { justify-self: start; margin-top: -2px; }
+.emp-grafico { grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.emp-grafico .mini-grafico { width: 100%; max-width: 100%; min-width: 0; }
+.emp-preco { flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+.emp-preco b { white-space: nowrap; }
+.emp-dono span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.emp-botoes { min-width: 0; }
+.emp-botoes .btn { min-width: 0; padding: 4px 8px; white-space: normal; line-height: 1.15; text-align: center; }
+@media (max-width: 760px) and (orientation: portrait) {
+  .empresas-grade { grid-auto-columns: minmax(170px, 60%); }
+  .emp-preco b { font-size: 15px; }
+}

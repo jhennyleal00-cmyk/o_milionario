@@ -363,9 +363,10 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     return el('article', { class: 'emp-cartao' + (souDono ? ' meu' : '') },
       el('header', {},
         el('img', { src: marca(e.id), alt: '' }),
-        el('strong', {}, e.nome),
-        disputa ? el('span', { class: 'chip chip-espera' }, 'Em disputa') : null,
+        el('strong', { title: e.nome }, e.nome),
         botaoSobre(e)),
+      // o selo fica numa linha própria: dentro do cabeçalho ele empurrava o cartão para fora
+      disputa ? el('span', { class: 'chip chip-espera emp-em-disputa' }, 'Em disputa') : null,
       el('button', { class: 'emp-grafico', 'aria-label': `Ver o gráfico da ${e.nome}`, onclick: () => abrirEmpresa(e.id) },
         serie && serie.length > 1 ? miniGrafico(serie, 200, 46) : el('span', { class: 'texto-mini' }, 'Ver detalhes')),
       el('div', { class: 'emp-preco' }, el('span', {}, el('small', {}, '1 ação'), el('b', {}, real(e.preco))), variacao(pct)),
