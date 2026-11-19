@@ -243,7 +243,7 @@ function desenharSemSala(ultima) {
 // ---------------------------------------------------------------------
 const BOTS = [
   { id: 'jake', nome: 'Jake', foto: 'preset:6', jeito: 'Analítico e cuidadoso: estuda os preços, diversifica, guarda dinheiro e só pega empréstimo com juros baixo.' },
-  { id: 'juliana', nome: 'Juliana', foto: 'preset:3', jeito: 'Emotiva e impulsiva: corre atrás do que subiu, vende no susto, dá lances altos e pega empréstimos.' },
+  { id: 'juliana', nome: 'Juliana', foto: 'preset:3', jeito: 'Intuitiva, mas controlada: aposta no que está subindo quando as notícias confirmam, guarda reserva e não se afoba nos leilões.' },
   { id: 'don', nome: 'Don', foto: 'preset:8', jeito: 'Ousado e estratégico: aposta alto com cálculo, concentra nas melhores empresas, ataca donos sem caixa e se prepara para o presente aos acionistas.' },
 ];
 

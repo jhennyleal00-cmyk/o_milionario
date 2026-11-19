@@ -1,5 +1,5 @@
 // Tela principal da partida: cidade de Neópolis ao fundo, cartão do jogador,
-// inflação, faixa de notícias, linha das rodadas, ranking e ajuda.
+// inflação, minhas empresas, faixa de notícias, linha das rodadas, ranking e ajuda.
 // Notícias, Mercado de Ações e Banqueiro entram nas próximas etapas.
 import { rpc } from './db.js';
 import { el, real, realCompacto, toast, modal, icone } from './ui.js';
@@ -52,6 +52,14 @@ export function criarPrincipal({ token, atualizarTudo }) {
     class: 'painel caixa-inflacao', 'aria-label': 'Ver o balanço geral do mercado',
     onclick: () => abrirNovidades('balanco'),
   }, el('span', { class: 'rotulo-pequeno' }, 'Inflação'), vInflacao, vInflacaoVar, vDesemprego);
+
+  // --- minhas empresas (toque leva ao mercado, na categoria "Minhas") ---
+  const contaMinhas = el('span', { class: 'minhas-conta' });
+  const listaMinhas = el('div', { class: 'minhas-lista' });
+  const painelMinhas = el('section', { class: 'painel minhas-empresas', 'aria-label': 'Minhas empresas' },
+    el('button', { class: 'minhas-titulo', onclick: () => abrirMinhas() },
+      el('span', { class: 'minhas-rotulo' }, icone('coroa', 14), 'Minhas', el('span', { class: 'minhas-sub' }, ' empresas')), contaMinhas),
+    listaMinhas);
 
   // --- faixa de notícias e linha das rodadas ---
   const faixaTexto = el('div', { class: 'faixa-texto' });
@@ -114,7 +122,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
   let cidade = null;
   const raiz = el('main', { class: 'jogo' },
     fundo,
-    el('div', { class: 'coluna-esq' }, cartao, inflacao),
+    el('div', { class: 'coluna-esq' }, cartao, inflacao, painelMinhas),
     topo,
     el('div', { class: 'coluna-dir' }, btnBanqueiro, ranking),
     btnMercado, el('div', { class: 'base-botoes' }, btnAjuda, btnMensagens), btnRanking, mercado.raiz, linkAdmin);
@@ -181,6 +189,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
       btnMensagens.querySelector('.selo-presente').hidden = !i.presente;
       btnMensagens.classList.toggle('tem-presente', !!i.presente);
       atualizarCidade();
+      desenharMinhas();
       if (i.noticias.length) preencherFaixa(i.noticias.map((n) => `${(CATEGORIAS[n.categoria]?.nome || '').toUpperCase()}: ${n.texto}`).join('   ·   ') + '   ·   ');
       if (i.inflacao !== null && i.inflacao !== undefined) {
         vInflacao.textContent = fmtPct(Number(i.inflacao), 2);
@@ -212,6 +221,33 @@ export function criarPrincipal({ token, atualizarTudo }) {
     } catch (e) { toast(e.message, 'erro'); }
   }
 
+  function abrirMinhas() {
+    raiz.classList.remove('ranking-aberto');
+    mercado.abrirMinhas();
+  }
+
+  function desenharMinhas() {
+    if (!dadosRanking || !est) return;
+    const pct = Object.fromEntries((info?.empresas || []).map((e) => [e.id, Number(e.pct)]));
+    const minhas = dadosRanking.empresas.filter((e) => e.dono_id === est.eu.id)
+      .sort((a, b) => Number(b.valor) - Number(a.valor));
+    const chave = JSON.stringify([minhas.map((e) => [e.id, e.acoes_dono, e.valor]), minhas.map((e) => pct[e.id] ?? null)]);
+    if (listaMinhas.dataset.chave === chave) return;
+    listaMinhas.dataset.chave = chave;
+    const total = minhas.reduce((t, e) => t + Number(e.valor || 0), 0);
+    contaMinhas.textContent = minhas.length ? `${minhas.length} · R$ ${realCompacto(total)}` : '';
+    painelMinhas.classList.toggle('vazio-minhas', !minhas.length);
+    listaMinhas.replaceChildren(...(minhas.length
+      ? minhas.map((e) => el('button', {
+        class: 'minha-emp', title: `${e.nome}: ${e.acoes_dono} ações · ${real(e.valor)}`, onclick: () => abrirMinhas(),
+      },
+      el('img', { src: marca(e.id), alt: '' }),
+      el('span', { class: 'minha-info' }, el('strong', {}, e.nome),
+        el('small', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'} · R$ ${realCompacto(e.valor)}`)),
+      pct[e.id] !== undefined ? variacao(pct[e.id]) : null))
+      : [el('button', { class: 'minhas-nenhuma', onclick: () => abrirMinhas() }, 'Nenhuma ainda. Dispute uma no Mercado de Ações.')]));
+  }
+
   function atualizarCidade() {
     if (!cidade || !dadosRanking) return;
     const pct = Object.fromEntries((info?.empresas || []).map((e) => [e.id, Number(e.pct)]));
@@ -227,6 +263,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
       const ids = dadosRanking.ricos.map((r) => r.id);
       await garantirFotos(est.sala.id, ids);
       atualizarCidade();
+      desenharMinhas();
       desenharRanking();
     }
     catch { /* próxima atualização tenta de novo */ }

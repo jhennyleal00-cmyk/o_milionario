@@ -1,5 +1,6 @@
-// Mercado de Ações: leilões (disputas), finalizar negociações, empresas por
-// setor (gráfico, dono, disputar, comprar/vender) e o fórum.
+// Mercado de Ações: leilões (disputas, numa lista só, os do jogador primeiro),
+// finalizar negociações, empresas por setor ou "Minhas" (gráfico, dono,
+// disputar, comprar/vender) e o fórum.
 import { rpc } from './db.js';
 import { el, real, toast, modal, confirmar, icone } from './ui.js';
 import { marca } from './logos.js';
@@ -14,7 +15,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   let aberto = false, dados = null, buscando = false, pendente = false, ultimoForum = 0;
   let desvio = 0, laco = null, relogio = null;   // desvio = relógio do servidor - relógio do aparelho
   const valores = {};                              // lance digitado em cada leilão
-  let abaLeiloes = 'minhas', setor = 'energia', abaMovel = 'empresas';
+  let setor = 'energia', abaMovel = 'empresas', setorEscolhido = false, irParaEmpresas = false;
   let ultimoAtivo = null;                          // leilão atual do jogador (para mostrar quando muda)
 
   const chip = el('span', { class: 'chip' });
@@ -38,7 +39,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     el('button', { class: 'btn-icone', 'aria-label': 'Fechar o mercado', onclick: () => fechar() }, icone('fechar', 18)));
 
   const listaLeiloes = el('div', { class: 'leiloes-lista' });
-  const abasLeiloes = el('div', { class: 'abas abas-leiloes', role: 'tablist' });
+  const contaLeiloes = el('span', { class: 'leiloes-conta' });
   const barra = el('div', { class: 'mercado-barra' });
   const abasSetor = el('div', { class: 'abas abas-setor', role: 'tablist' });
   const grade = el('div', { class: 'empresas-grade' });
@@ -71,7 +72,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   const listaForum = el('ol', { class: 'forum-lista', 'aria-live': 'polite' });
 
   const principal = el('div', { class: 'mercado-principal' },
-    el('section', { class: 'leiloes' }, el('h3', {}, 'Leilões'), abasLeiloes, listaLeiloes),
+    el('section', { class: 'leiloes' }, el('h3', {}, 'Leilões ', contaLeiloes), listaLeiloes),
     barra,
     el('section', { class: 'empresas' }, el('h3', {}, 'Empresas'), abasSetor, grade, trilho));
   const forum = el('aside', { class: 'forum' }, el('h3', {}, 'Fórum das ações'), listaForum);
@@ -114,7 +115,10 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
         dados.empresas.forEach((e) => e.dono_id && ids.add(e.dono_id));
         dados.disputas.forEach((d) => d.participantes.forEach((p) => ids.add(p.jogador_id)));
         await garantirFotos(dados.sala.id, [...ids]);
+        // na primeira vez, quem já tem empresa abre direto em "Minhas"
+        if (!setorEscolhido) { setorEscolhido = true; if (dados.empresas.some((e) => e.dono_id === dados.eu.id)) setor = 'minhas'; }
         desenhar();
+        if (irParaEmpresas) { irParaEmpresas = false; requestAnimationFrame(() => principal.querySelector('.empresas')?.scrollIntoView({ block: 'start' })); }
       }
     } catch (e) { toast(e.message, 'erro'); }
     buscando = false;
@@ -146,14 +150,14 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
 
   function desenharTudo() {
     // as fileiras com rolagem lateral são redesenhadas a cada atualização: guarda a posição
-    const rolagem = { leiloes: listaLeiloes.scrollLeft, grade: grade.scrollLeft, setor: grade.dataset.setor, aba: listaLeiloes.dataset.aba };
+    const rolagem = { leiloes: listaLeiloes.scrollLeft, grade: grade.scrollLeft, setor: grade.dataset.setor };
     desenharConteudo();
-    if (listaLeiloes.dataset.aba === rolagem.aba) listaLeiloes.scrollLeft = rolagem.leiloes;
+    listaLeiloes.scrollLeft = rolagem.leiloes;
     grade.scrollLeft = grade.dataset.setor === rolagem.setor ? rolagem.grade : 0;
     requestAnimationFrame(sincronizarTrilho);
     // quando o seu leilão da vez muda, ele aparece na tela
     const ativo = dados.sala.fase === 'leiloes' ? dados.eu.leilao_atual : null;
-    if (ativo && ativo !== ultimoAtivo && abaLeiloes === 'minhas') {
+    if (ativo && ativo !== ultimoAtivo) {
       const n = listaLeiloes.querySelector(`[data-disputa="${ativo}"]`);
       if (n) listaLeiloes.scrollLeft = Math.max(0, n.offsetLeft - listaLeiloes.offsetLeft - 8);
     }
@@ -184,20 +188,17 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     const disputaDe = Object.fromEntries(disputas.map((d) => [d.empresa_id, d]));
     const minhas = disputas.filter((d) => d.participantes.some((p) => p.jogador_id === eu.id));
     const outras = disputas.filter((d) => !d.participantes.some((p) => p.jogador_id === eu.id));
+    // os leilões em que o jogador está vêm primeiro (na ordem em que acontecem); os encerrados vão para o fim
+    const fim = (d) => (d.status === 'encerrada' ? 1 : 0);
+    const lista = [...minhas.slice().sort((a, b) => fim(a) - fim(b)), ...outras.slice().sort((a, b) => fim(a) - fim(b))];
 
     // ---- leilões
-    const lista = abaLeiloes === 'minhas' ? minhas : outras;
     const empsLista = lista.map((d) => porEmpresa[d.empresa_id]);
-    seMudou('leiloes', [abaLeiloes, minhas.length, outras.length, lista, empsLista, minhas.map((x) => [x.id, x.status]),
+    seMudou('leiloes', [lista, empsLista, minhas.map((x) => [x.id, x.status]),
       eu.id, eu.carteira, eu.leilao_atual, podeNegociar], () => {
-    abasLeiloes.replaceChildren(
-      ...[['minhas', `Meus leilões (${minhas.length})`], ['outras', `Outros leilões (${outras.length})`]].map(([id, txt]) =>
-        el('button', { class: 'aba' + (abaLeiloes === id ? ' ativa' : ''), onclick: () => { abaLeiloes = id; desenhar(); } }, txt)));
-    listaLeiloes.dataset.aba = abaLeiloes;
+    contaLeiloes.textContent = disputas.length ? `· ${disputas.length} ${disputas.length === 1 ? 'empresa' : 'empresas'}${minhas.length ? ` · você está em ${minhas.length}` : ''}` : '';
     listaLeiloes.replaceChildren(...(lista.length ? lista.map((d) => cartaoDisputa(d, porEmpresa[d.empresa_id], minhas, podeNegociar)).filter(Boolean)
-      : [el('p', { class: 'texto-suave vazio' }, abaLeiloes === 'minhas'
-        ? 'Você não está em nenhuma disputa. Aperte “Disputar” numa empresa para colocá-la em leilão.'
-        : 'Nenhuma outra empresa está em disputa agora.')]));
+      : [el('p', { class: 'texto-suave vazio' }, 'Nenhuma empresa em disputa agora. Aperte “Disputar” numa empresa para colocá-la em leilão.')]));
     });
 
     // ---- barra de finalizar
@@ -227,14 +228,21 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     // ---- empresas por setor
     const info = obterInfo();
     const series = Object.fromEntries((info?.empresas || []).map((e) => [e.id, (e.serie || []).map(Number)]));
-    const doSetor = empresas.filter((e) => e.setor === setor);
-    seMudou('empresas', [setor, doSetor, doSetor.map((e) => disputaDe[e.id] || null), doSetor.map((e) => series[e.id] || null), eu.id, podeNegociar], () => {
-    abasSetor.replaceChildren(...ORDEM_SETORES.map((s) => el('button', {
-      class: 'aba' + (setor === s ? ' ativa' : ''), style: `--cor:${SETORES[s].cor}`, title: SETORES[s].nome,
-      onclick: () => { setor = s; desenhar(); },
-    }, el('span', { class: 'ponto-setor' }), NOME_CURTO[s])));
+    const minhasEmp = empresas.filter((e) => e.dono_id === eu.id);
+    const doSetor = setor === 'minhas' ? minhasEmp : empresas.filter((e) => e.setor === setor);
+    seMudou('empresas', [setor, minhasEmp.length, doSetor, doSetor.map((e) => disputaDe[e.id] || null), doSetor.map((e) => series[e.id] || null), eu.id, podeNegociar], () => {
+    abasSetor.replaceChildren(
+      el('button', {
+        class: 'aba aba-minhas' + (setor === 'minhas' ? ' ativa' : ''), title: 'Empresas de que você é dono',
+        onclick: () => { setor = 'minhas'; desenhar(); },
+      }, icone('coroa', 14), `Minhas (${minhasEmp.length})`),
+      ...ORDEM_SETORES.map((s) => el('button', {
+        class: 'aba' + (setor === s ? ' ativa' : ''), style: `--cor:${SETORES[s].cor}`, title: SETORES[s].nome,
+        onclick: () => { setor = s; desenhar(); },
+      }, el('span', { class: 'ponto-setor' }), NOME_CURTO[s])));
     grade.dataset.setor = setor;
-    grade.replaceChildren(...doSetor.map((e) => cartaoEmpresa(e, disputaDe[e.id], eu, podeNegociar, series[e.id])));
+    grade.replaceChildren(...(doSetor.length ? doSetor.map((e) => cartaoEmpresa(e, disputaDe[e.id], eu, podeNegociar, series[e.id]))
+      : [el('p', { class: 'texto-suave vazio grade-vazia' }, 'Você ainda não é dono de nenhuma empresa. Escolha um setor e aperte “Disputar”.')]));
     });
 
     // ---- fórum
@@ -313,6 +321,18 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       controles = el('p', { class: 'lance-meu' }, 'Seu lance é o maior. Se ninguém cobrir até o fim do tempo, a empresa é sua.');
     }
 
+    // entrar na disputa direto pelo leilão (só antes de o mercado fechar)
+    let entrar = null;
+    if (!meu && d.status === 'aberta') {
+      const minimoEntrar = preco * (emp?.dono_id ? baseDono + 1 : 1);
+      entrar = el('div', { class: 'disputa-entrar' },
+        el('span', { class: 'texto-mini' }, `Lance mínimo: ${real(minimoEntrar)}`),
+        el('button', {
+          class: 'btn btn-mini btn-ouro', disabled: !podeNegociar,
+          onclick: () => acao('disputar', { p_empresa: d.empresa_id }, 'Você entrou na disputa.'),
+        }, 'Disputar'));
+    }
+
     const podeSair = meu && meu.papel !== 'dono' && !meu.deu_lance &&
       ((d.status === 'aberta' && podeNegociar) || (aoVivo && d.estado !== 'encerrado'));
     return el('article', { 'data-disputa': String(d.id), class: `disputa estado-${d.status === 'encerrada' ? 'encerrado' : d.status === 'aberta' ? 'aberta' : d.estado}` + (meu ? ' minha' : '') },
@@ -320,7 +340,8 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
         el('img', { src: marca(d.empresa_id), alt: '' }),
         el('div', {}, el('strong', {}, emp?.nome || d.empresa_id),
           el('span', { class: 'texto-mini' }, emp?.dono_id ? `Dono: ${emp.dono_nome} · ${emp.acoes_dono} ações` : 'Disponível')),
-        ordemMinha >= 0 && d.status !== 'encerrada' ? el('span', { class: 'chip chip-espera', title: 'Ordem dos seus leilões' }, `Seu ${ordemMinha + 1}º`) : null),
+        ordemMinha >= 0 && d.status !== 'encerrada' ? el('span', { class: 'chip chip-espera', title: 'Ordem dos seus leilões' }, `Seu ${ordemMinha + 1}º`)
+          : meu ? el('span', { class: 'chip chip-espera' }, 'Seu') : null),
       situacao,
       el('ol', { class: 'participantes' }, d.participantes.map((p) => el('li', { class: p.jogador_id === d.lider_id ? 'lider' : '' },
         el('img', { src: fotoDe(p.jogador_id, p.foto), alt: '' }),
@@ -330,6 +351,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
           : p.deu_lance ? el('span', { class: 'texto-mini' }, 'deu lance')
           : (p.jogador_id === d.criador_id && d.status === 'aberta' ? el('span', { class: 'texto-mini' }, 'primeiro lance') : null)))),
       controles,
+      entrar,
       podeSair ? el('button', {
         class: 'btn btn-mini btn-fantasma',
         onclick: () => acao(aoVivo ? 'sair_leilao' : 'sair_disputa', { p_disputa: d.id }),
@@ -417,7 +439,8 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
 
   return {
     raiz, abrir, fechar, definirFaixa,
-    abrirLeiloes: () => { abaLeiloes = 'minhas'; if (!aberto) abrir(); else carregar(); },
+    abrirLeiloes: () => { if (!aberto) abrir(); else carregar(); },
+    abrirMinhas: () => { setor = 'minhas'; setorEscolhido = true; abaMovel = 'empresas'; irParaEmpresas = true; if (!aberto) abrir(); else carregar(); },
     alternar: () => (aberto ? fechar() : abrir()),
     atualizar: () => aberto && carregar(),
     get aberto() { return aberto; },

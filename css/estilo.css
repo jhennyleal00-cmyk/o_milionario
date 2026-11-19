@@ -947,3 +947,63 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
   .modal-mensagens .modal-botoes { margin-top: 8px; }
 }
 @media (max-width: 900px) { .btn-mensagens .btn-rotulo { display: none; } .btn-mensagens { padding: 8px; } }
+
+/* =====================================================================
+   Minhas empresas (tela inicial) · aba "Minhas" no mercado · leilões numa lista só
+   ===================================================================== */
+.minhas-empresas { padding: 8px 10px 10px; display: grid; gap: 6px; width: 250px; }
+.minhas-titulo {
+  display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--ouro-claro); font: inherit; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; text-align: left;
+}
+.minhas-rotulo { display: inline-flex; align-items: center; gap: 6px; }
+.minhas-titulo .minhas-conta { margin-left: auto; letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--suave); }
+.minhas-lista { display: grid; gap: 4px; max-height: 196px; overflow-y: auto; scrollbar-width: thin; }
+.minha-emp {
+  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%;
+  padding: 5px 6px; border-radius: 9px; border: 1px solid transparent; background: rgba(255, 255, 255, .03);
+  color: var(--texto); font: inherit; text-align: left; cursor: pointer;
+}
+.minha-emp:hover { border-color: var(--linha-forte); background: rgba(214, 168, 64, .08); }
+.minha-emp img { width: 26px; height: 26px; border-radius: 7px; }
+.minha-info { display: flex; flex-direction: column; min-width: 0; }
+.minha-info strong { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.minha-info small { font-size: 11px; color: var(--suave); white-space: nowrap; }
+.minha-emp .variacao { font-size: 11px; white-space: nowrap; }
+.minhas-nenhuma { padding: 4px 0; border: 0; background: none; color: var(--suave); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.minhas-nenhuma:hover { color: var(--texto); }
+@media (max-height: 520px), (max-width: 900px) {
+  .minhas-empresas { width: auto; padding: 6px 8px 8px; }
+  .minhas-lista { max-height: 112px; }
+}
+@media (orientation: portrait) and (max-width: 760px) {
+  /* no celular em pé: uma faixa que rola para o lado, embaixo do cartão */
+  .coluna-esq { flex-wrap: wrap; }
+  .minhas-empresas { flex: 1 0 100%; width: auto; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; padding: 5px 6px 5px 10px; }
+  .minhas-titulo { flex-direction: column; align-items: flex-start; gap: 1px; }
+  .minhas-rotulo { display: inline-flex; align-items: center; gap: 4px; }
+  .minhas-sub { display: none; }
+  .minhas-titulo .minhas-conta { margin-left: 0; font-size: 10px; white-space: nowrap; }
+  .minha-emp .variacao.igual { display: none; }
+  .minhas-lista { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; max-height: none; scrollbar-width: none; }
+  .minhas-lista::-webkit-scrollbar { display: none; }
+  .minha-emp { flex: none; width: auto; max-width: 190px; grid-template-columns: 22px auto auto; gap: 6px; padding: 3px 8px 3px 4px; border-radius: 999px; }
+  .minha-emp img { width: 22px; height: 22px; border-radius: 50%; }
+  .minha-info strong { font-size: 12px; }
+  .minha-info small { font-size: 10px; }
+  .minhas-nenhuma { font-size: 11px; white-space: nowrap; }
+}
+
+.abas-setor .aba-minhas { color: var(--ouro-claro); }
+.abas-setor .aba-minhas svg { flex: none; }
+.grade-vazia { padding: 8px 2px; max-width: 320px; }
+
+.leiloes h3 .leiloes-conta { letter-spacing: .02em; text-transform: none; font-weight: 600; }
+.disputa.minha {
+  border-color: var(--ouro); background: rgba(214, 168, 64, .13);
+  box-shadow: inset 4px 0 0 var(--ouro), 0 6px 20px rgba(214, 168, 64, .10);
+}
+.disputa:not(.minha) { background: rgba(255, 255, 255, .03); }
+.disputa:not(.minha).estado-abertura, .disputa:not(.minha).estado-lances { background: rgba(255, 255, 255, .05); box-shadow: 0 0 0 1px rgba(255, 255, 255, .10); }
+.disputa-entrar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px solid var(--linha); }
+.disputa-entrar .btn { min-width: 92px; }
