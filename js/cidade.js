@@ -3,7 +3,7 @@
 // empresas (logo, ou foto + nome + ações do dono).
 import {
   N, TW, TH, TOPO, LARG, ALT, P, gerarMapa, desenharChao, pecasBloco, pecasOrla, postes,
-  criarSorteio, caixa, CORES_CARRO, misturar,
+  criarSorteio, caixa, CORES_CARRO, misturar, RIO, PONTES, GG, BAIA, alturaPonte, pecasGG, pecasFora,
 } from './cidade-mapa.js';
 import { marca } from './logos.js';
 
@@ -22,6 +22,7 @@ export function fatorNoite(ms = Date.now()) {
 export function criarCidade({ semente, aoClicarEmpresa }) {
   const movel = matchMedia('(pointer: coarse)').matches;
   const RES = movel ? 1 : 1.5;
+  const RES_CHAO = movel ? 1 : 1.25;   // o chão é grande: um pouco menos de resolução no computador
   const raiz = document.createElement('div');
   raiz.className = 'cidade-raiz';
   const canvas = document.createElement('canvas');
@@ -33,12 +34,13 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
   raiz.append(canvas, aviso);
   const ctx = canvas.getContext('2d');
   canvas.alvosMarcadores = () => alvos; // posições dos marcadores na tela (usado nos testes)
+  canvas.camera = (x, y, z) => { cam.x = x; cam.y = y; cam.z = z; limitar(); };   // usado nos testes
 
   let pronta = false, ativo = true, raf = 0;
   let W = 0, H = 0, dpr = 1;
   const cam = { x: LARG / 2, y: TOPO + N * TH / 2 - 40, z: movel ? 0.6 : 0.85 };
   let mapa, chao, brilho, objetos = [], chamines = [], blocosAnim = [], sedes = {};
-  let carros = [], barcos = [], fumaca = [];
+  let carros = [], barcos = [], fumaca = [], helis = [], helipontos = [];
   let estadoEmpresas = {}, fotos = {};
   const imgs = {};
   let alvos = [];
@@ -47,8 +49,8 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
   function montar() {
     mapa = gerarMapa(semente);
     chao = document.createElement('canvas');
-    chao.width = Math.ceil(LARG * RES); chao.height = Math.ceil(ALT * RES);
-    const c = chao.getContext('2d'); c.scale(RES, RES); desenharChao(c, mapa);
+    chao.width = Math.ceil(LARG * RES_CHAO); chao.height = Math.ceil(ALT * RES_CHAO);
+    const c = chao.getContext('2d'); c.scale(RES_CHAO, RES_CHAO); desenharChao(c, mapa);
 
     // brilho dos postes (meia resolução: é tudo difuso mesmo)
     brilho = document.createElement('canvas');
@@ -65,13 +67,22 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       const s = criarSprite(pb.pecas, b.x0, b.y0, 4, pb.altMax, `luz${b.bx},${b.by}`);
       objetos.push({ k: b.x0 + 2 + b.y0 + 2, s, b });
       chamines.push(...s.C);
-      if (b.turbinas || b.guindaste || b.chama || b.refletores) { b.anim = true; blocosAnim.push(b); }
+      if (b.turbinas || b.guindaste || b.chama || b.refletores || b.roda || (b.semaforos && b.semaforos.length)) { b.anim = true; blocosAnim.push(b); }
       if (b.empresa && pb.ancora) sedes[b.empresa] = { ancora: pb.ancora, bloco: b };
+      helipontos.push(...(b.helipontos || []));
     }
     for (let bx = 0; bx < 8; bx++) {
       const po = pecasOrla(bx);
-      const s = criarSprite(po.pecas, bx * 5 + 1, 24, 1, po.altMax, 'orla' + bx);
-      objetos.push({ k: bx * 5 + 3 + 24.5, s });
+      const s = criarSprite(po.pecas, bx * 5 + 1, 29, 1, po.altMax, 'orla' + bx);
+      objetos.push({ k: bx * 5 + 3 + 29.5, s });
+    }
+    // mega ponte e arredores
+    for (const t of pecasGG()) objetos.push({ k: t.k, s: criarSprite(t.pecas, t.x0, t.y0, t.tam, t.altMax, 'gg' + t.y0) });
+    // arredores: o que fica atrás/ao lado da cidade nunca cobre nada dela, então
+    // vai pintado direto no chão (bem mais leve); só o que está na frente vira figura
+    for (const g of pecasFora().sort((a, b) => a.k - b.k)) {
+      if (g.y0 < N) { for (const p of g.pecas) p.d(c, [], [], []); continue; }
+      objetos.push({ k: g.k, s: criarSprite(g.pecas, g.x0, g.y0, g.tam, g.altMax, `fora${g.x0},${g.y0}`) });
     }
     objetos.sort((a, b) => a.k - b.k);
     criarVeiculos();
@@ -88,8 +99,8 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
     dia.width = Math.ceil(w * RES); dia.height = Math.ceil(h * RES);
     const g = dia.getContext('2d');
     g.scale(RES, RES); g.translate(-esq, -topo);
-    const J = [], C = [];
-    for (const p of pecas) p.d(g, J, C);
+    const J = [], C = [], Lz = [];
+    for (const p of pecas) p.d(g, J, C, Lz);
 
     const noite = document.createElement('canvas');
     noite.width = dia.width; noite.height = dia.height;
@@ -108,18 +119,25 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       n.fillStyle = v < 0.7 ? '#ffd27a' : v < 0.9 ? '#fff2c9' : '#a8d8ff';
       n.fill();
     }
+    // luzes fixas (letreiros, cabos da ponte, roda-gigante…): sempre acesas à noite
+    for (const [lx, ly, cor, raio] of Lz) {
+      const rr = raio || 2;
+      const gr = n.createRadialGradient(lx, ly, 0, lx, ly, rr * 3);
+      gr.addColorStop(0, cor); gr.addColorStop(0.35, cor + 'aa'); gr.addColorStop(1, cor + '00');
+      n.fillStyle = gr; n.fillRect(lx - rr * 3, ly - rr * 3, rr * 6, rr * 6);
+    }
     return { dia, noite, x: esq, y: topo, w, h, C };
   }
 
   // ---------------------------------------------------------------- veículos
-  const ehRua = (x, y) => x >= 0 && y >= 0 && x < N && y < N && (mapa.grade[y][x] === 'rua' || mapa.grade[y][x] === 'ponte');
+  const ehRua = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ['rua', 'ponte', 'ponteGG'].includes(mapa.grade[y][x]);
   const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
   function criarVeiculos() {
     const r = criarSorteio('veiculos' + semente);
     const ruas = [];
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ehRua(x, y) && !(x % 5 === 0 && y % 5 === 0)) ruas.push([x, y]);
-    const total = movel ? 46 : 80;
+    const total = movel ? 60 : 110;
     for (let i = 0; i < total; i++) {
       const [x, y] = r.um(ruas);
       const horiz = y % 5 === 0;
@@ -131,11 +149,26 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
         cor: caminhao ? r.um(['#ecf0f1', '#f39c12', '#2980b9', '#c0392b', '#7f8c8d']) : r.um(CORES_CARRO),
       });
     }
+    const yr = RIO.y0 + 1;
     barcos = [
-      { x: 3, y: 22.0, v: 0.55, cor: '#ecf0f1' },
-      { x: 26, y: 23.0, v: -0.45, cor: '#f39c12' },
-      { x: 14, y: 22.0, v: 0.4, cor: '#c0392b' },
+      { x: 3, y: yr - 0.6, v: 0.55, cor: '#ecf0f1' },
+      { x: 26, y: yr + 0.6, v: -0.45, cor: '#f39c12' },
+      { x: 14, y: yr - 0.6, v: 0.4, cor: '#c0392b' },
+      // na baía e no mar (passam por baixo da mega ponte)
+      { x: 42, y: BAIA.y0 + 2.5, v: 0.35, cor: '#ffffff', min: BAIA.x0 + 0.6, max: N + 12, vela: true },
+      { x: 52, y: BAIA.y1 - 2.2, v: -0.28, cor: '#2980b9', min: BAIA.x0 + 0.6, max: N + 12 },
+      { x: 47, y: RIO.y1 - 0.4, v: 0.22, cor: '#e74c3c', min: BAIA.x0 + 0.6, max: N + 10, vela: true },
     ];
+    // helicópteros: voam entre os helipontos (heliporto, prédios e hospital)
+    const rh = criarSorteio('helis' + semente);
+    if (helipontos.length >= 2) {
+      const cores = ['#e74c3c', '#f1c40f', '#2c3e50', '#16a085'];
+      const n = Math.min(movel ? 3 : 4, helipontos.length);
+      for (let i = 0; i < n; i++) {
+        const p = helipontos[i % helipontos.length];
+        helis.push({ x: p[0], y: p[1], z: p[2], pad: i % helipontos.length, estado: 'parado', espera: 2 + rh() * 8 + i * 3, rotor: 0, giro: 0, cor: cores[i % cores.length], ang: rh() * 6 });
+      }
+    }
   }
 
   function moverCarros(dt) {
@@ -152,8 +185,11 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
     }
     for (const b of barcos) {
       b.x += b.v * dt;
-      if (b.x > N + 2) b.x = -2; if (b.x < -2) b.x = N + 2;
+      if (b.min != null) { if (b.x > b.max || b.x < b.min) { b.v = -b.v; b.x = Math.min(b.max, Math.max(b.min, b.x)); } continue; }
+      if (b.x > BAIA.x0 - 0.5 && b.v > 0) b.x = -2;
+      if (b.x < -2) b.x = BAIA.x0 - 0.5;
     }
+    moverHelis(dt);
   }
 
   function posCarro(c) {
@@ -163,6 +199,7 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
 
   function desenharCarro(c, noite) {
     const [x, y] = posCarro(c);
+    const zp = alturaPonte(x, y);
     const comp = c.caminhao ? 0.62 : 0.4, larg = c.caminhao ? 0.24 : 0.2;
     const horiz = c.dx !== 0;
     const w = horiz ? comp : larg, d = horiz ? larg : comp;
@@ -173,31 +210,36 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       const fy = horiz ? y - larg / 2 : (c.dy > 0 ? y + comp / 2 - cab : y - comp / 2);
       const bx = horiz ? (c.dx > 0 ? x - comp / 2 : x - comp / 2 + cab) : x - larg / 2;
       const by = horiz ? y - larg / 2 : (c.dy > 0 ? y - comp / 2 : y - comp / 2 + cab);
-      caixa(ctx, bx, by, horiz ? comp - cab : larg, horiz ? larg : comp - cab, 1, 11, escurece(c.cor));
-      caixa(ctx, fx, fy, horiz ? cab : larg, horiz ? larg : cab, 1, 8, escurece('#34495e'));
+      caixa(ctx, bx, by, horiz ? comp - cab : larg, horiz ? larg : comp - cab, 1 + zp, 11, escurece(c.cor));
+      caixa(ctx, fx, fy, horiz ? cab : larg, horiz ? larg : cab, 1 + zp, 8, escurece('#34495e'));
     } else {
-      caixa(ctx, x - w / 2, y - d / 2, w, d, 1, 4.5, escurece(c.cor));
-      caixa(ctx, x - w / 2 + (horiz ? w * 0.25 : 0.02), y - d / 2 + (horiz ? 0.02 : d * 0.25), horiz ? w * 0.5 : w - 0.04, horiz ? d - 0.04 : d * 0.5, 5.5, 3, escurece('#2c3e50'));
+      caixa(ctx, x - w / 2, y - d / 2, w, d, 1 + zp, 4.5, escurece(c.cor));
+      caixa(ctx, x - w / 2 + (horiz ? w * 0.25 : 0.02), y - d / 2 + (horiz ? 0.02 : d * 0.25), horiz ? w * 0.5 : w - 0.04, horiz ? d - 0.04 : d * 0.5, 5.5 + zp, 3, escurece('#2c3e50'));
     }
     if (noite > 0.15) {
-      const [fx2, fy2] = P(x + c.dx * comp * 0.7, y + c.dy * comp * 0.7, 2);
+      const [fx2, fy2] = P(x + c.dx * comp * 0.7, y + c.dy * comp * 0.7, 2 + zp);
       ctx.globalAlpha = noite * 0.7;
       ctx.fillStyle = '#fff1b8';
       ctx.beginPath(); ctx.ellipse(fx2, fy2, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
-      const [tx2, ty2] = P(x - c.dx * comp * 0.5, y - c.dy * comp * 0.5, 3);
+      const [tx2, ty2] = P(x - c.dx * comp * 0.5, y - c.dy * comp * 0.5, 3 + zp);
       ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.arc(tx2, ty2, 1.4, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
     }
   }
 
   function desenharBarco(b, noite) {
-    for (const px of [10, 20, 30]) if (b.x > px - 0.6 && b.x < px + 1.6) return; // passando sob a ponte
+    if (b.min == null) for (const px of PONTES) if (b.x > px - 0.6 && b.x < px + 1.6) return; // passando sob a ponte
+    if (b.x > GG.x - 0.6 && b.x < GG.x + 1.6) return;
     const esc = (c) => noite > 0 ? misturar(c, '#0b1030', noite * 0.55) : c;
     const [sx, sy] = P(b.x, b.y);
     ctx.fillStyle = 'rgba(255,255,255,.35)';
     ctx.beginPath(); ctx.ellipse(sx - Math.sign(b.v) * 22, sy - Math.sign(b.v) * 11, 14, 4, Math.atan2(16, 32), 0, Math.PI * 2); ctx.fill();
     caixa(ctx, b.x - 0.5, b.y - 0.16, 1.0, 0.32, 0, 5, esc('#2c3e50'));
-    caixa(ctx, b.x - 0.25, b.y - 0.12, 0.45, 0.24, 5, 6, esc(b.cor));
+    if (b.vela) {
+      const [mx, my] = P(b.x, b.y, 5), [tx, ty] = P(b.x, b.y, 34);
+      ctx.strokeStyle = esc('#6d4c41'); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(tx, ty); ctx.stroke();
+      ctx.fillStyle = esc(b.cor); ctx.beginPath(); ctx.moveTo(tx, ty + 2); ctx.lineTo(tx + 13 * Math.sign(b.v || 1), my - 3); ctx.lineTo(tx, my - 3); ctx.closePath(); ctx.fill();
+    } else caixa(ctx, b.x - 0.25, b.y - 0.12, 0.45, 0.24, 5, 6, esc(b.cor));
     if (noite > 0.2) { const [lx, ly] = P(b.x, b.y, 12); ctx.fillStyle = '#ffe9a8'; ctx.globalAlpha = noite; ctx.fillRect(lx - 1.5, ly - 1.5, 3, 3); ctx.globalAlpha = 1; }
   }
 
@@ -213,8 +255,111 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
     fumaca = fumaca.filter((f) => f.vida < f.max);
   }
 
+  // ---------------------------------------------------------------- helicópteros
+  const CRUZEIRO = 250;
+  function moverHelis(dt) {
+    for (const h of helis) {
+      const alvo = h.alvo != null ? helipontos[h.alvo] : null;
+      h.rotor += dt * (h.estado === 'parado' ? (h.espera < 2.5 ? 18 : 0) : 26);
+      if (h.estado === 'parado') {
+        h.espera -= dt;
+        if (h.espera <= 0) {
+          let a = Math.floor(Math.random() * helipontos.length);
+          if (a === h.pad) a = (a + 1) % helipontos.length;
+          if (helis.some((o) => o !== h && (o.alvo === a || (o.estado === 'parado' && o.pad === a)))) a = (a + 2) % helipontos.length;
+          h.alvo = a; h.estado = 'subindo';
+        }
+      } else if (h.estado === 'subindo') {
+        h.z = Math.min(CRUZEIRO, h.z + 55 * dt);
+        if (h.z >= CRUZEIRO) h.estado = 'voando';
+      } else if (h.estado === 'voando') {
+        const dx = alvo[0] - h.x, dy = alvo[1] - h.y, dist = Math.hypot(dx, dy);
+        h.ang = Math.atan2(dy, dx);
+        const passo = 2.6 * dt;
+        if (dist <= passo) { h.x = alvo[0]; h.y = alvo[1]; h.estado = 'descendo'; }
+        else { h.x += dx / dist * passo; h.y += dy / dist * passo; }
+      } else if (h.estado === 'descendo') {
+        h.z = Math.max(alvo[2], h.z - 45 * dt);
+        if (h.z <= alvo[2]) { h.estado = 'parado'; h.pad = h.alvo; h.alvo = null; h.espera = 6 + Math.random() * 10; }
+      }
+    }
+  }
+
+  function desenharHeli(h, t, noite) {
+    const [sx, sy] = P(h.x, h.y, h.z);
+    const esc = (c) => noite > 0 ? misturar(c, '#0b1030', noite * 0.5) : c;
+    // sombra no chão quando voa
+    if (h.z > 6) { const [gx, gy] = P(h.x, h.y); ctx.fillStyle = `rgba(0,0,0,${(0.18 * Math.max(0.2, 1 - h.z / 320)).toFixed(3)})`; ctx.beginPath(); ctx.ellipse(gx, gy, 11, 5, 0, 0, Math.PI * 2); ctx.fill(); }
+    // direção na tela
+    const [ax, ay] = P(h.x + Math.cos(h.ang), h.y + Math.sin(h.ang), h.z);
+    let ux = ax - sx, uy = ay - sy; const l = Math.hypot(ux, uy) || 1; ux /= l; uy /= l;
+    // esquis
+    ctx.strokeStyle = esc('#2c3e50'); ctx.lineWidth = 1.2;
+    for (const s2 of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx - ux * 7 + uy * 3 * s2, sy - uy * 7 + 5 - ux * 1.5 * s2); ctx.lineTo(sx + ux * 7 + uy * 3 * s2, sy + uy * 7 + 5 - ux * 1.5 * s2); ctx.stroke(); }
+    // cauda
+    ctx.strokeStyle = esc(h.cor); ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - ux * 16, sy - uy * 16 - 2); ctx.stroke();
+    ctx.fillStyle = esc(h.cor); ctx.fillRect(sx - ux * 16 - 1.5, sy - uy * 16 - 6, 3, 6);
+    // corpo e cabine
+    ctx.fillStyle = esc(h.cor); ctx.beginPath(); ctx.ellipse(sx, sy, 8, 5, Math.atan2(uy, ux), 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = esc('#9fd3ef'); ctx.beginPath(); ctx.ellipse(sx + ux * 4, sy + uy * 4 - 1, 3.5, 2.8, Math.atan2(uy, ux), 0, Math.PI * 2); ctx.fill();
+    // hélice
+    const gira = h.rotor;
+    ctx.strokeStyle = 'rgba(30,30,30,.75)'; ctx.lineWidth = 1.3;
+    for (let i = 0; i < 2; i++) { const a = gira + i * Math.PI / 2; ctx.beginPath(); ctx.moveTo(sx - Math.cos(a) * 15, sy - 6 - Math.sin(a) * 7); ctx.lineTo(sx + Math.cos(a) * 15, sy - 6 + Math.sin(a) * 7); ctx.stroke(); }
+    if (h.estado !== 'parado') { ctx.fillStyle = 'rgba(200,200,200,.18)'; ctx.beginPath(); ctx.ellipse(sx, sy - 6, 15, 7, 0, 0, Math.PI * 2); ctx.fill(); }
+    // luzes de navegação
+    if (Math.floor(t * 1.6 + h.ang) % 2 === 0) { ctx.fillStyle = '#ff3b3b'; ctx.beginPath(); ctx.arc(sx - ux * 16, sy - uy * 16 - 7, 1.6, 0, Math.PI * 2); ctx.fill(); }
+    if (noite > 0.3 && h.estado !== 'parado') {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = noite * 0.35;
+      const [gx, gy] = P(h.x + Math.cos(h.ang) * 0.6, h.y + Math.sin(h.ang) * 0.6);
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 26); g.addColorStop(0, 'rgba(255,250,220,1)'); g.addColorStop(1, 'rgba(255,250,220,0)');
+      ctx.fillStyle = g; ctx.fillRect(gx - 26, gy - 26, 52, 52);
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
   // ---------------------------------------------------------------- extras animados
+  function desenharRoda(rd, t, noite) {
+    const { cx, cy, hub, R } = rd, Rz = R * 45, n = 14, giro = t * 0.22 + rd.fase;
+    const ponto = (a, raio = 1) => P(cx + Math.cos(a) * R * raio, cy, hub + Math.sin(a) * Rz * raio);
+    const perna = (dy) => { const a = P(cx, cy + dy), b2 = P(cx, cy, hub); ctx.strokeStyle = '#d0d3d4'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke(); };
+    perna(-0.55);
+    const [hx, hy] = P(cx, cy, hub);
+    ctx.strokeStyle = noite > 0.5 ? '#9fb4c7' : '#eef2f5'; ctx.lineWidth = 1.1;
+    for (let i = 0; i < n; i++) { const [px, py] = ponto(giro + i * Math.PI * 2 / n); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(px, py); ctx.stroke(); }
+    ctx.lineWidth = 2.6; ctx.strokeStyle = noite > 0.5 ? '#c7d3de' : '#ffffff';
+    ctx.beginPath(); for (let i = 0; i <= 48; i++) { const [px, py] = ponto(i / 48 * Math.PI * 2); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke();
+    ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i <= 48; i++) { const [px, py] = ponto(i / 48 * Math.PI * 2, 0.9); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke();
+    const cores = ['#e74c3c', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6', '#e67e22', '#1abc9c'];
+    for (let i = 0; i < n; i++) {
+      const [px, py] = ponto(giro + i * Math.PI * 2 / n);
+      ctx.strokeStyle = '#7f8c8d'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + 4); ctx.stroke();
+      ctx.fillStyle = noite > 0 ? misturar(cores[i % cores.length], '#0b1030', noite * 0.35) : cores[i % cores.length];
+      ctx.beginPath(); ctx.ellipse(px, py + 7, 4.2, 3.4, 0, 0, Math.PI * 2); ctx.fill();
+      if (noite > 0.2) { ctx.fillStyle = '#fff3c4'; ctx.globalAlpha = noite * 0.9; ctx.fillRect(px - 1.5, py + 5.5, 3, 2); ctx.globalAlpha = 1; }
+    }
+    ctx.fillStyle = '#7f8c8d'; ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI * 2); ctx.fill();
+    if (noite > 0.05) {
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = noite;
+      for (let i = 0; i < 28; i++) { const [px, py] = ponto(i / 28 * Math.PI * 2); ctx.fillStyle = ['#ff5c8a', '#ffd166', '#5ec8ff'][(i + Math.floor(t * 3)) % 3]; ctx.beginPath(); ctx.arc(px, py, 1.8, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    perna(0.55);
+  }
+
+  function desenharSemaforos(lista, t, noite) {
+    for (const sm of lista) {
+      const c = (t + sm.fase) % 12, i = c < 5 ? 2 : c < 6.5 ? 1 : 0;
+      const [sx, sy] = P(sm.p[0], sm.p[1], 25);
+      const cor = ['#ff3b3b', '#ffc93b', '#3bff7a'][i];
+      ctx.fillStyle = cor; ctx.beginPath(); ctx.arc(sx, sy - 8.5 + i * 3.6, 1.5, 0, Math.PI * 2); ctx.fill();
+      if (noite > 0.1) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = noite * 0.6; ctx.beginPath(); ctx.arc(sx, sy - 8.5 + i * 3.6, 5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; }
+    }
+  }
+
   function desenharExtras(b, t, noite) {
+    if (b.roda) desenharRoda(b.roda, t, noite);
+    if (b.semaforos && b.semaforos.length) desenharSemaforos(b.semaforos, t, noite);
     if (b.turbinas) for (const tb of b.turbinas) {
       const [cx, cy] = tb.cubo;
       ctx.strokeStyle = noite > 0.5 ? '#9aa4ad' : '#f4f6f7'; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
@@ -374,7 +519,7 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
     // chão (só o pedaço visível)
     const sx0 = Math.max(0, vx0), sy0 = Math.max(0, vy0), sx1 = Math.min(LARG, vx1), sy1 = Math.min(ALT, vy1);
     if (sx1 > sx0 && sy1 > sy0) {
-      ctx.drawImage(chao, sx0 * RES, sy0 * RES, (sx1 - sx0) * RES, (sy1 - sy0) * RES, sx0, sy0, sx1 - sx0, sy1 - sy0);
+      ctx.drawImage(chao, sx0 * RES_CHAO, sy0 * RES_CHAO, (sx1 - sx0) * RES_CHAO, (sy1 - sy0) * RES_CHAO, sx0, sy0, sx1 - sx0, sy1 - sy0);
       ondas(t, noite, vx0, vx1);
       if (noite > 0) {
         ctx.fillStyle = `rgba(8,13,38,${(0.62 * noite).toFixed(3)})`;
@@ -415,6 +560,7 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.globalAlpha = 1;
+    for (const h of helis) desenharHeli(h, t, noite);
     desenharAviao(t);
 
     // tom de entardecer / amanhecer
@@ -431,8 +577,17 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     for (let i = 0; i < 70; i++) {
-      const y = 21.2 + ((i * 0.37) % 2.6);
-      const x = ((i * 7.31 + t * (0.25 + (i % 3) * 0.08)) % (N + 2)) - 1;
+      const y = RIO.y0 + 0.2 + ((i * 0.37) % 2.6);
+      const x = ((i * 7.31 + t * (0.25 + (i % 3) * 0.08)) % (BAIA.x0 + 2)) - 2;
+      const a = P(x, y), b = P(x + 0.35, y);
+      if (b[0] < vx0 || a[0] > vx1) continue;
+      ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
+    }
+    // baía e mar
+    for (let i = 0; i < 110; i++) {
+      const y = BAIA.y0 - 6 + ((i * 1.37) % 26);
+      const x = BAIA.x0 + 0.3 + ((i * 5.71 + t * (0.18 + (i % 4) * 0.05)) % 22);
+      if (x < N && (y < BAIA.y0 || y > BAIA.y1 + 0.7)) continue;
       const a = P(x, y), b = P(x + 0.35, y);
       if (b[0] < vx0 || a[0] > vx1) continue;
       ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]);
