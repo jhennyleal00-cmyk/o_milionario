@@ -1007,3 +1007,53 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
 .disputa:not(.minha).estado-abertura, .disputa:not(.minha).estado-lances { background: rgba(255, 255, 255, .05); box-shadow: 0 0 0 1px rgba(255, 255, 255, .10); }
 .disputa-entrar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px solid var(--linha); }
 .disputa-entrar .btn { min-width: 92px; }
+
+/* =====================================================================
+   Leilões num bloco com rolagem · aviso de resultado (3 s)
+   ===================================================================== */
+.leiloes-bloco { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); }
+.leiloes-trilho { display: none; }
+@media (orientation: portrait) and (max-width: 760px) {
+  .leiloes-bloco { grid-template-columns: minmax(0, 1fr) 14px; gap: 6px; }
+  .leiloes-lista { max-height: min(54dvh, 470px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none; padding-right: 0; }
+  .leiloes-lista::-webkit-scrollbar { display: none; }
+  .leiloes-trilho {
+    display: block; position: relative; width: 12px; border-radius: 999px; cursor: pointer; touch-action: none;
+    background: rgba(255, 255, 255, .07); box-shadow: inset 0 0 0 1px rgba(214, 168, 64, .18);
+  }
+  .leiloes-trilho i { position: absolute; left: 2px; right: 2px; top: 0; height: 30%; border-radius: 999px;
+    background: linear-gradient(180deg, var(--ouro-claro), var(--ouro)); box-shadow: 0 0 10px rgba(214, 168, 64, .35); }
+  .leiloes-trilho.arrastando i { background: var(--ouro-claro); }
+  .leiloes-trilho.sem-rolagem { visibility: hidden; }
+  .leiloes-bloco:not(.rola) { grid-template-columns: minmax(0, 1fr); }
+  .leiloes-bloco:not(.rola) .leiloes-trilho { display: none; }
+  /* sombra no pé avisando que tem mais leilão para baixo */
+  .leiloes-bloco.rola:not(.no-fim)::after {
+    content: ''; position: absolute; left: 0; right: 20px; bottom: 0; height: 34px; pointer-events: none; border-radius: 0 0 12px 12px;
+    background: linear-gradient(180deg, transparent, rgba(13, 13, 17, .92));
+  }
+}
+
+.resultado-leilao {
+  position: fixed; left: 50%; top: max(10px, env(safe-area-inset-top)); z-index: 80; transform: translateX(-50%);   /* no topo: não cobre o leilão ao vivo */
+  width: min(420px, calc(100vw - 32px)); display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; align-items: center;
+  padding: 16px 18px 20px; border-radius: 16px; overflow: hidden; pointer-events: none;   /* não atrapalha um lance */
+  background: rgba(16, 16, 22, .97); border: 1px solid var(--linha-forte);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .55), 0 0 0 1px rgba(214, 168, 64, .15);
+  animation: resultado-entra .26s ease-out;
+}
+.resultado-leilao > img { width: 52px; height: 52px; border-radius: 12px; }
+.resultado-leilao > .icone { color: var(--ouro-claro); display: grid; place-items: center; }
+.resultado-leilao div { display: grid; gap: 4px; min-width: 0; }
+.resultado-rotulo { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; color: var(--ouro-claro); }
+.resultado-leilao strong { font-size: 16px; line-height: 1.3; }
+.resultado-leilao.venci { border-color: var(--verde); box-shadow: 0 18px 50px rgba(0, 0, 0, .55), 0 0 30px rgba(60, 207, 142, .25); }
+.resultado-leilao.venci .resultado-rotulo { color: var(--verde); }
+.resultado-leilao.perdi .resultado-rotulo { color: var(--suave); }
+.resultado-tempo { position: absolute; left: 0; bottom: 0; height: 4px; width: 100%; background: var(--grad-ouro); transform-origin: left; animation: resultado-tempo 3s linear forwards; }
+.resultado-leilao.venci .resultado-tempo { background: var(--verde); }
+.resultado-leilao.saindo { animation: resultado-sai .22s ease-in forwards; }
+@keyframes resultado-entra { from { opacity: 0; transform: translate(-50%, -14px) scale(.96); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes resultado-sai { to { opacity: 0; transform: translate(-50%, -10px) scale(.97); } }
+@keyframes resultado-tempo { to { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .resultado-leilao, .resultado-leilao.saindo { animation: none; } }

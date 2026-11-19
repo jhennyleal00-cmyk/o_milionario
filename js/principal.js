@@ -177,6 +177,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
       toast('O mercado fechou: os leilões começaram!', 'info');
     }
     btnMercado.classList.toggle('fechado', sala.fase !== 'mercado');
+    mercado.definirFase(sala.fase);
     mercado.atualizar();
   }
 

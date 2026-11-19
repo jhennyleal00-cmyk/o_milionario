@@ -16,13 +16,15 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   let desvio = 0, laco = null, relogio = null;   // desvio = relógio do servidor - relógio do aparelho
   const valores = {};                              // lance digitado em cada leilão
   let setor = 'energia', abaMovel = 'empresas', setorEscolhido = false, irParaEmpresas = false;
+  let forumAoFim = true;                           // na próxima vez que desenhar, mostra as mensagens mais novas
+  let fase = null, ultimoResultado = null, vigiando = false;   // resultados dos leilões (aviso de 3 s)
   let ultimoAtivo = null;                          // leilão atual do jogador (para mostrar quando muda)
 
   const chip = el('span', { class: 'chip' });
   const vCarteira = el('strong', {});
   const abasMovel = el('div', { class: 'abas mercado-abas-movel', role: 'tablist' },
     ...[['empresas', 'Mercado'], ['forum', 'Fórum']].map(([id, txt]) =>
-      el('button', { class: 'aba', 'data-movel': id, onclick: () => { abaMovel = id; desenhar(); } }, txt)));
+      el('button', { class: 'aba', 'data-movel': id, onclick: () => { abaMovel = id; if (id === 'forum') forumAoFim = true; desenhar(); } }, txt)));
   // faixa de notícias dentro do mercado (aparece quando o mercado cobre a tela toda)
   const faixaTexto = el('div', { class: 'faixa-texto' });
   const faixaMercado = el('div', { class: 'faixa-noticias mercado-faixa', 'aria-label': 'Notícias da rodada' },
@@ -39,6 +41,35 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     el('button', { class: 'btn-icone', 'aria-label': 'Fechar o mercado', onclick: () => fechar() }, icone('fechar', 18)));
 
   const listaLeiloes = el('div', { class: 'leiloes-lista' });
+  // no celular os leilões ficam num bloco de altura fixa, com barra de rolagem própria (sempre visível)
+  const pegadorL = el('i', {});
+  const trilhoL = el('div', { class: 'leiloes-trilho sem-rolagem', role: 'scrollbar', 'aria-orientation': 'vertical', 'aria-label': 'Rolar os leilões' }, pegadorL);
+  const blocoLeiloes = el('div', { class: 'leiloes-bloco' }, listaLeiloes, trilhoL);
+  function sincronizarTrilhoL() {
+    const max = listaLeiloes.scrollHeight - listaLeiloes.clientHeight;
+    const vertical = max > 2 && getComputedStyle(listaLeiloes).flexDirection === 'column';
+    trilhoL.classList.toggle('sem-rolagem', !vertical);
+    blocoLeiloes.classList.toggle('rola', vertical);
+    if (!vertical) return;
+    const altura = Math.max(12, (listaLeiloes.clientHeight / listaLeiloes.scrollHeight) * 100);
+    pegadorL.style.height = `${altura}%`;
+    pegadorL.style.top = `${(listaLeiloes.scrollTop / max) * (100 - altura)}%`;
+    blocoLeiloes.classList.toggle('no-fim', listaLeiloes.scrollTop >= max - 2);
+  }
+  function rolarLeiloes(y) {
+    const r = trilhoL.getBoundingClientRect();
+    const altura = pegadorL.getBoundingClientRect().height;
+    const frac = Math.min(1, Math.max(0, (y - r.top - altura / 2) / Math.max(1, r.height - altura)));
+    listaLeiloes.scrollTop = frac * (listaLeiloes.scrollHeight - listaLeiloes.clientHeight);
+  }
+  listaLeiloes.addEventListener('scroll', sincronizarTrilhoL, { passive: true });
+  window.addEventListener('resize', sincronizarTrilhoL);
+  trilhoL.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault(); trilhoL.setPointerCapture(ev.pointerId); trilhoL.classList.add('arrastando'); rolarLeiloes(ev.clientY);
+    const mover = (e) => rolarLeiloes(e.clientY);
+    const soltar = () => { trilhoL.classList.remove('arrastando'); trilhoL.removeEventListener('pointermove', mover); trilhoL.removeEventListener('pointerup', soltar); trilhoL.removeEventListener('pointercancel', soltar); };
+    trilhoL.addEventListener('pointermove', mover); trilhoL.addEventListener('pointerup', soltar); trilhoL.addEventListener('pointercancel', soltar);
+  });
   const contaLeiloes = el('span', { class: 'leiloes-conta' });
   const barra = el('div', { class: 'mercado-barra' });
   const abasSetor = el('div', { class: 'abas abas-setor', role: 'tablist' });
@@ -72,7 +103,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   const listaForum = el('ol', { class: 'forum-lista', 'aria-live': 'polite' });
 
   const principal = el('div', { class: 'mercado-principal' },
-    el('section', { class: 'leiloes' }, el('h3', {}, 'Leilões ', contaLeiloes), listaLeiloes),
+    el('section', { class: 'leiloes' }, el('h3', {}, 'Leilões ', contaLeiloes), blocoLeiloes),
     barra,
     el('section', { class: 'empresas' }, el('h3', {}, 'Empresas'), abasSetor, grade, trilho));
   const forum = el('aside', { class: 'forum' }, el('h3', {}, 'Fórum das ações'), listaForum);
@@ -81,7 +112,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
 
   // ------------------------------------------------------------------
   function abrir() {
-    aberto = true; raiz.hidden = false; document.body.classList.add('mercado-aberto'); carregar();
+    aberto = true; raiz.hidden = false; document.body.classList.add('mercado-aberto'); forumAoFim = true; carregar();
     clearInterval(laco); laco = setInterval(() => { if (dados?.sala.fase === 'leiloes') carregar(); }, 1000);
     clearInterval(relogio); relogio = setInterval(atualizarRelogios, 250);
   }
@@ -111,6 +142,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       dados = await rpc('mercado_estado', { p_token: token() });
       if (dados) {
         desvio = new Date(dados.agora).getTime() - (antes + Date.now()) / 2;
+        verResultados(dados);
         const ids = new Set();
         dados.empresas.forEach((e) => e.dono_id && ids.add(e.dono_id));
         dados.disputas.forEach((d) => d.participantes.forEach((p) => ids.add(p.jogador_id)));
@@ -125,9 +157,59 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     if (pendente) { pendente = false; carregar(); }
   }
 
+  // Cada leilão encerrado vira um aviso de 3 segundos no meio da tela (um de cada vez).
+  // A fonte é o fórum: lá o resultado continua mesmo depois que a rodada vira.
+  function verResultados(d) {
+    // só o desfecho do leilão (não "saiu do leilão" nem "perdeu a vez")
+    const res = (d.forum || []).filter((f) => f.tipo === 'leilao' && / é o novo dono da | ainda é o dono da |^Ninguém deu lance /.test(f.texto));
+    const maior = res.length ? res[res.length - 1].id : 0;
+    if (ultimoResultado === null) { ultimoResultado = maior; return; }   // não repete os antigos ao entrar
+    for (const f of res) if (f.id > ultimoResultado) avisarResultado(f.texto, d);
+    ultimoResultado = Math.max(ultimoResultado, maior);
+  }
+  const fila = [];
+  let mostrando = false;
+  function avisarResultado(texto, d) {
+    const emp = (d.empresas || []).slice().sort((a, b) => b.nome.length - a.nome.length).find((e) => texto.includes(e.nome));
+    const meuNome = (d.jogadores || []).find((j) => j.id === d.eu?.id)?.nome || '';
+    const venci = meuNome && (texto.startsWith(`${meuNome} é o novo dono`) || texto.startsWith(`${meuNome} ainda é o dono`));
+    const perdi = !venci && emp && (d.disputas || []).some((x) => x.empresa_id === emp.id && x.participantes.some((p) => p.jogador_id === d.eu?.id));
+    fila.push({ texto, emp, venci, perdi });
+    if (!mostrando) proximoResultado();
+  }
+  function proximoResultado() {
+    const r = fila.shift();
+    if (!r) { mostrando = false; return; }
+    mostrando = true;
+    const cartao = el('div', { class: 'resultado-leilao' + (r.venci ? ' venci' : r.perdi ? ' perdi' : ''), role: 'status', 'aria-live': 'polite' },
+      r.emp ? el('img', { src: marca(r.emp.id), alt: '' }) : icone('coroa', 34),
+      el('div', {},
+        el('span', { class: 'resultado-rotulo' }, r.venci ? 'Você venceu o leilão!' : r.perdi ? 'Você não levou esta' : 'Resultado do leilão'),
+        el('strong', {}, r.texto)),
+      el('i', { class: 'resultado-tempo' }));
+    const fora = () => { cartao.classList.add('saindo'); setTimeout(() => { cartao.remove(); proximoResultado(); }, 220); };
+    document.body.append(cartao);
+    setTimeout(fora, 3000);
+  }
+  // Com o mercado fechado durante os leilões, continua olhando os resultados (a cada 2 s)
+  setInterval(async () => {
+    if (aberto || fase !== 'leiloes' || vigiando || document.hidden) return;
+    vigiando = true;
+    try { const d = await rpc('mercado_estado', { p_token: token() }); if (d) verResultados(d); } catch { /* tenta de novo */ }
+    vigiando = false;
+  }, 2000);
+  async function definirFase(nova) {
+    const antes = fase; fase = nova;
+    // a rodada virou: confere o último resultado, que pode ter saído junto com a virada
+    if (antes === 'leiloes' && nova !== 'leiloes' && !aberto) {
+      try { const d = await rpc('mercado_estado', { p_token: token() }); if (d) verResultados(d); } catch { /* nada */ }
+    }
+  }
+
   async function acao(fn, args, msgOk) {
     try {
       dados = await rpc(fn, { p_token: token(), ...args });
+      verResultados(dados);
       if (fn === 'dar_lance') delete valores[args.p_disputa];
       desenhar();
       if (msgOk) toast(msgOk, 'ok');
@@ -150,16 +232,20 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
 
   function desenharTudo() {
     // as fileiras com rolagem lateral são redesenhadas a cada atualização: guarda a posição
-    const rolagem = { leiloes: listaLeiloes.scrollLeft, grade: grade.scrollLeft, setor: grade.dataset.setor };
+    const rolagem = { leiloes: listaLeiloes.scrollLeft, leiloesY: listaLeiloes.scrollTop, grade: grade.scrollLeft, setor: grade.dataset.setor };
     desenharConteudo();
-    listaLeiloes.scrollLeft = rolagem.leiloes;
+    listaLeiloes.scrollLeft = rolagem.leiloes; listaLeiloes.scrollTop = rolagem.leiloesY;
     grade.scrollLeft = grade.dataset.setor === rolagem.setor ? rolagem.grade : 0;
-    requestAnimationFrame(sincronizarTrilho);
+    requestAnimationFrame(() => { sincronizarTrilho(); sincronizarTrilhoL(); });
     // quando o seu leilão da vez muda, ele aparece na tela
     const ativo = dados.sala.fase === 'leiloes' ? dados.eu.leilao_atual : null;
     if (ativo && ativo !== ultimoAtivo) {
       const n = listaLeiloes.querySelector(`[data-disputa="${ativo}"]`);
-      if (n) listaLeiloes.scrollLeft = Math.max(0, n.offsetLeft - listaLeiloes.offsetLeft - 8);
+      if (n) {
+        const a = n.getBoundingClientRect(), l = listaLeiloes.getBoundingClientRect();
+        listaLeiloes.scrollLeft = Math.max(0, listaLeiloes.scrollLeft + a.left - l.left - 8);
+        listaLeiloes.scrollTop = Math.max(0, listaLeiloes.scrollTop + a.top - l.top - 8);
+      }
     }
     ultimoAtivo = ativo;
   }
@@ -253,6 +339,12 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       el('span', {}, f.texto))) : [el('li', { class: 'texto-suave' }, 'Nada por aqui ainda.')])));
     if (novos !== ultimoForum && (noFim || !ultimoForum)) listaForum.scrollTop = listaForum.scrollHeight;
     ultimoForum = novos;
+    if (forumAoFim && listaForum.clientHeight > 0) {
+      // ao abrir o mercado (ou a aba Fórum no celular), começa pelas mensagens mais recentes
+      forumAoFim = false;
+      listaForum.scrollTop = listaForum.scrollHeight;
+      requestAnimationFrame(() => { listaForum.scrollTop = listaForum.scrollHeight; });
+    }
   }
 
   function cartaoDisputa(d, emp, minhas, podeNegociar) {
@@ -438,7 +530,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   }
 
   return {
-    raiz, abrir, fechar, definirFaixa,
+    raiz, abrir, fechar, definirFaixa, definirFase,
     abrirLeiloes: () => { if (!aberto) abrir(); else carregar(); },
     abrirMinhas: () => { setor = 'minhas'; setorEscolhido = true; abaMovel = 'empresas'; irParaEmpresas = true; if (!aberto) abrir(); else carregar(); },
     alternar: () => (aberto ? fechar() : abrir()),
