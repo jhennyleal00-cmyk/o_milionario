@@ -11,6 +11,7 @@ import { garantirFotos, foto as fotoDe, fotosComReserva } from './fotos.js';
 import { obterRodada, mostrarNovidades, CATEGORIAS } from './noticias.js';
 import { graficoPreco, variacao, fmtPct } from './graficos.js';
 import { criarMercado } from './mercado.js';
+import { abrirEnviarDinheiro } from './grupo.js';
 import { abrirBanqueiro } from './banqueiro.js';
 
 let catalogo = null;
@@ -35,6 +36,15 @@ export function criarPrincipal({ token, atualizarTudo }) {
   const vDividas = el('span', { class: 'valor negativo' });
   const linhaDividas = el('div', { class: 'linha-valor', hidden: true }, el('span', {}, 'Dívidas'), vDividas);
   const avisoCarteira = el('p', { class: 'cartao-alerta', hidden: true });
+  // modo grupo: nome do grupo e o botão de enviar dinheiro (sempre disponível)
+  const vGrupo = el('span', { class: 'cartao-grupo-nome' });
+  const btnEnviar = el('button', {
+    class: 'btn btn-mini btn-fantasma btn-enviar', title: 'Enviar dinheiro para alguém do seu grupo',
+    onclick: () => abrirEnviarDinheiro({ token, grupo: est?.eu?.grupo, euId: est?.eu?.id,
+      aoEnviar: () => { atualizarTudo?.(); ultimoRanking = 0; carregarRanking(); } }),
+  }, icone('enviar', 14), el('span', {}, 'Enviar dinheiro'));
+  const chipLider = el('span', { class: 'chip chip-espera', hidden: true }, 'líder');
+  const linhaGrupo = el('div', { class: 'cartao-grupo', hidden: true }, icone('grupo', 15), vGrupo, chipLider, btnEnviar);
 
   const cartao = el('section', { class: 'painel cartao-jogador' },
     foto,
@@ -43,6 +53,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
       el('div', { class: 'linha-valor' }, el('span', {}, 'Carteira'), vCarteira),
       el('div', { class: 'linha-valor' }, el('span', {}, 'Patrimônio'), vPatrimonio),
       linhaDividas,
+      linhaGrupo,
       avisoOculto, avisoCarteira));
 
   const vInflacao = el('strong', { class: 'inflacao-valor' }, '—');
@@ -86,7 +97,7 @@ export function criarPrincipal({ token, atualizarTudo }) {
 
   const corpoRanking = el('div', { class: 'ranking-corpo' });
   const abas = el('div', { class: 'abas', role: 'tablist' },
-    ...[['ricos', 'Mais ricos'], ['empresas', 'Empresas']].map(([id, txt]) =>
+    ...[['ricos', 'Mais ricos'], ['grupos', 'Grupos'], ['empresas', 'Empresas']].map(([id, txt]) =>
       el('button', { class: 'aba', role: 'tab', 'data-aba': id, onclick: () => { abaRanking = id; desenharRanking(); } }, txt)));
   const ranking = el('section', { class: 'painel ranking' }, el('h2', { class: 'painel-titulo' }, 'Ranking'), abas, corpoRanking);
 
@@ -161,10 +172,18 @@ export function criarPrincipal({ token, atualizarTudo }) {
           i === 0 ? `Rodada ${n}` : String(n));
       }));
     }
+    const g = sala.modo === 'grupo' ? eu.grupo : null;
+    linhaGrupo.hidden = !g;
+    if (g) {
+      vGrupo.textContent = `Grupo ${g.nome}`;
+      vGrupo.title = g.membros.map((m) => m.nome).join(', ');
+      chipLider.hidden = g.lider_id !== eu.id;
+      btnEnviar.hidden = eu.eliminado || sala.status !== 'jogando';
+    }
     const dividas = Number(eu.dividas || 0);
     linhaDividas.hidden = dividas <= 0;
     vDividas.textContent = real(dividas);
-    if (eu.eliminado) { avisoCarteira.hidden = false; avisoCarteira.textContent = 'Você faliu e está fora da partida.'; }
+    if (eu.eliminado) { avisoCarteira.hidden = false; avisoCarteira.textContent = g ? 'Seu grupo faliu e está fora da partida.' : 'Você faliu e está fora da partida.'; }
     else if (Number(eu.carteira) < 0) { avisoCarteira.hidden = false; avisoCarteira.textContent = 'Carteira negativa: venda ações. Ao fechar o mercado o sistema vende por você.'; }
     else avisoCarteira.hidden = true;
     if (Date.now() - ultimoRanking > 3000) carregarRanking();
@@ -230,9 +249,11 @@ export function criarPrincipal({ token, atualizarTudo }) {
   function desenharMinhas() {
     if (!dadosRanking || !est) return;
     const pct = Object.fromEntries((info?.empresas || []).map((e) => [e.id, Number(e.pct)]));
-    const minhas = dadosRanking.empresas.filter((e) => e.dono_id === est.eu.id)
+    const gid = est.sala.modo === 'grupo' ? est.eu.grupo?.id : null;
+    const minhas = dadosRanking.empresas.filter((e) => (gid ? e.grupo_id === gid : e.dono_id === est.eu.id))
       .sort((a, b) => Number(b.valor) - Number(a.valor));
-    const chave = JSON.stringify([minhas.map((e) => [e.id, e.acoes_dono, e.valor]), minhas.map((e) => pct[e.id] ?? null)]);
+    const suas = (e) => (e.membros || []).find((m) => m.id === est.eu.id)?.acoes || 0;
+    const chave = JSON.stringify([minhas.map((e) => [e.id, e.acoes_dono, e.valor, suas(e)]), minhas.map((e) => pct[e.id] ?? null)]);
     if (listaMinhas.dataset.chave === chave) return;
     listaMinhas.dataset.chave = chave;
     const total = minhas.reduce((t, e) => t + Number(e.valor || 0), 0);
@@ -244,16 +265,17 @@ export function criarPrincipal({ token, atualizarTudo }) {
       },
       el('img', { src: marca(e.id), alt: '' }),
       el('span', { class: 'minha-info' }, el('strong', {}, e.nome),
-        el('small', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'} · R$ ${realCompacto(e.valor)}`)),
+        el('small', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'}${gid ? ` (suas ${suas(e)})` : ''} · R$ ${realCompacto(e.valor)}`)),
       pct[e.id] !== undefined ? variacao(pct[e.id]) : null))
-      : [el('button', { class: 'minhas-nenhuma', onclick: () => abrirMinhas() }, 'Nenhuma ainda. Dispute uma no Mercado de Ações.')]));
+      : [el('button', { class: 'minhas-nenhuma', onclick: () => abrirMinhas() }, gid ? 'O grupo ainda não tem empresas. Dispute uma no Mercado.' : 'Nenhuma ainda. Dispute uma no Mercado de Ações.')]));
   }
 
   function atualizarCidade() {
     if (!cidade || !dadosRanking) return;
     const pct = Object.fromEntries((info?.empresas || []).map((e) => [e.id, Number(e.pct)]));
     const lista = dadosRanking.empresas.map((e) => ({ ...e, pct: pct[e.id] ?? 0 }));
-    cidade.atualizarEmpresas(lista, fotosComReserva(dadosRanking.empresas.map((e) => [e.dono_id, e.dono_foto])));
+    cidade.atualizarEmpresas(lista, fotosComReserva(dadosRanking.empresas.flatMap((e) =>
+      [[e.dono_id, e.dono_foto], ...(e.membros || []).map((m) => [m.id, m.foto])])));
   }
 
   async function carregarRanking() {
@@ -272,17 +294,35 @@ export function criarPrincipal({ token, atualizarTudo }) {
   }
 
   function desenharRanking() {
+    const modoGrupo = est?.sala?.modo === 'grupo';
+    if (!modoGrupo && abaRanking === 'grupos') abaRanking = 'ricos';
     abas.querySelectorAll('.aba').forEach((b) => {
       const sel = b.dataset.aba === abaRanking;
       b.classList.toggle('ativa', sel); b.setAttribute('aria-selected', sel);
+      if (b.dataset.aba === 'grupos') b.hidden = !modoGrupo;
     });
     if (!dadosRanking) return;
+    if (abaRanking === 'grupos') {
+      const meuG = est.eu.grupo?.id;
+      corpoRanking.replaceChildren(...(dadosRanking.grupos || []).map((g) => {
+        const pct = Math.max(0, Math.min(100, (Number(g.total) / Number(g.meta)) * 100));
+        return el('div', { class: 'rank-linha rank-grupo-linha' + (g.id === meuG ? ' sou-eu' : '') },
+          el('span', { class: 'rank-pos' }, `${g.posicao}º`),
+          el('span', { class: 'fotos-grupo' }, g.membros.slice(0, 4).map((m) => el('img', { src: fotoDe(m.id, m.foto), alt: '', title: m.nome }))),
+          el('div', { class: 'rank-info' },
+            el('strong', {}, g.nome),
+            el('span', { class: 'rank-sub' + (g.eliminado ? ' oculto' : '') }, g.eliminado ? 'Faliu'
+              : `${g.membros.map((m) => m.nome).join(', ')} · ${pct.toFixed(0)}% da meta (${realCompacto(g.meta)})`)),
+          el('span', { class: 'rank-total' }, 'R$ ' + realCompacto(g.total)));
+      }));
+      return;
+    }
     if (abaRanking === 'ricos') {
       corpoRanking.replaceChildren(...dadosRanking.ricos.map((r) => el('div', { class: 'rank-linha' + (r.id === est.eu.id ? ' sou-eu' : '') },
         el('span', { class: 'rank-pos' }, `${r.posicao}º`),
         el('img', { class: 'rank-foto', src: fotoDe(r.id, r.foto), alt: '' }),
         el('div', { class: 'rank-info' },
-          el('strong', {}, r.nome),
+          el('strong', {}, r.nome, r.grupo ? el('small', { class: 'rank-grupo' }, ` · ${r.grupo}`) : null),
           r.oculto
             ? el('span', { class: 'rank-sub oculto' }, 'Valores ocultos')
             : el('span', { class: 'rank-sub' + (r.eliminado ? ' oculto' : '') }, r.eliminado ? 'Faliu' : [`Carteira ${realCompacto(r.carteira)}`, `Patrimônio ${realCompacto(r.patrimonio)}`, Number(r.dividas) > 0 ? `Dívidas ${realCompacto(r.dividas)}` : null].filter(Boolean).map((t) => t.replace(/ /g, '\u00a0')).join(' · '))),
@@ -293,7 +333,8 @@ export function criarPrincipal({ token, atualizarTudo }) {
         el('img', { class: 'rank-selo', src: marca(e.id), alt: '' }),
         el('div', { class: 'rank-info' },
           el('strong', {}, e.nome),
-          el('span', { class: 'rank-sub' }, e.dono_nome ? `Dono: ${e.dono_nome} · ${e.acoes_dono} ações` : 'Disponível')),
+          el('span', { class: 'rank-sub' }, e.grupo_nome ? `Grupo ${e.grupo_nome} · ${e.acoes_dono} ações`
+            : e.dono_nome ? `Dono: ${e.dono_nome} · ${e.acoes_dono} ações` : 'Disponível')),
         el('div', { class: 'rank-valores' },
           el('span', { class: 'rank-total' }, real(e.preco)),
           el('span', { class: 'rank-mini' }, 'por ação')))));
@@ -312,6 +353,22 @@ export function criarPrincipal({ token, atualizarTudo }) {
 
   function abrirProgresso() {
     const { eu, sala } = est;
+    const g = sala.modo === 'grupo' ? (dadosRanking?.grupos || []).find((x) => x.id === eu.grupo?.id) : null;
+    if (g) {
+      const falta = Math.max(0, Number(g.meta) - Number(g.total));
+      const pct = Math.max(0, Math.min(100, (Number(g.total) / Number(g.meta)) * 100));
+      modal({
+        titulo: `Rumo à meta do grupo ${g.nome}`,
+        conteudo: el('div', { class: 'progresso' },
+          ...g.membros.map((m) => el('div', { class: 'progresso-linha' }, el('span', {}, m.nome), el('strong', {}, real(m.total)))),
+          el('div', { class: 'progresso-linha destaque' }, el('span', {}, 'Total do grupo (sem as dívidas)'), el('strong', {}, real(g.total))),
+          el('div', { class: 'progresso-linha' }, el('span', {}, `Meta do grupo (${real(sala.meta)} × ${g.membros.length})`), el('strong', {}, real(g.meta))),
+          el('div', { class: 'barra' }, el('div', { class: 'barra-cheia', style: `width:${pct.toFixed(1)}%` })),
+          el('p', { class: 'progresso-falta' }, falta > 0 ? `Faltam ${real(falta)} (${pct.toFixed(1).replace('.', ',')}% do caminho)` : 'O grupo chegou à meta!')),
+        botoes: [{ texto: 'Fechar', classe: 'btn-ouro' }],
+      });
+      return;
+    }
     const total = Number(eu.carteira) + Number(eu.patrimonio) - Number(eu.dividas || 0);
     const falta = Math.max(0, Number(sala.meta) - total);
     const pct = Math.max(0, Math.min(100, (total / Number(sala.meta)) * 100));

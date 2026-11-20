@@ -1,4 +1,5 @@
-// Painel do administrador: criar sala, ver quem entrou, iniciar, remover, encerrar.
+// Painel do administrador: criar sala (individual ou em grupos), ver quem entrou,
+// montar os grupos, iniciar, remover, encerrar.
 // Só abre nos aparelhos liberados (o primeiro que entrar vira o do administrador).
 import { rpc, ouvirSala } from './db.js';
 import { $, el, toast, confirmar, marca, fundoCidade, icone, real, modal } from './ui.js';
@@ -9,6 +10,8 @@ const APARELHO = 'milionario.aparelho';   // chave secreta deste aparelho (só e
 const app = $('#app');
 document.documentElement.style.setProperty('--cidade', fundoCidade());
 let pararOuvir = null, salaOuvida = null, laco = null, ultimoPainel = null;
+// grupo sendo montado (sobrevive às atualizações do painel)
+const rascunho = { nome: '', membros: new Set(), lider: null };
 
 const admin = () => localStorage.getItem(CHAVE);
 const linkJogo = () => new URL('./', location.href).href;
@@ -131,6 +134,9 @@ function desenhar(r) {
   if (document.activeElement && corpo.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
 
   const prontos = jogadores.filter((j) => j.pronto).length;
+  const modoGrupo = sala.modo === 'grupo';
+  const grupos = r.grupos || [];
+  const nomeGrupo = (gid) => grupos.find((g) => g.id === gid)?.nome;
   const statusTxt = sala.status === 'lobby' ? 'Aguardando jogadores' : `Em jogo · ${sala.rodada}ª rodada`;
   corpo.replaceChildren(
     el('section', { class: 'cartao admin-sala' },
@@ -139,7 +145,15 @@ function desenhar(r) {
         el('span', { class: 'chip ' + (sala.status === 'lobby' ? 'chip-espera' : 'chip-ok') }, statusTxt)),
       el('dl', { class: 'admin-dados' },
         el('dt', {}, 'Capital inicial'), el('dd', {}, real(sala.capital_inicial)),
-        el('dt', {}, 'Meta'), el('dd', {}, real(sala.meta)),
+        el('dt', {}, 'Meta'), el('dd', {}, real(sala.meta) + (modoGrupo ? ' por pessoa do grupo' : '')),
+        el('dt', {}, 'Modo'), el('dd', {}, modoGrupo ? 'Em grupos' : 'Individual',
+          sala.status === 'lobby' ? el('button', {
+            class: 'btn btn-mini btn-fantasma admin-trocar-modo',
+            onclick: async () => {
+              const txt = modoGrupo ? 'Os grupos montados serão desfeitos e cada um joga por si.' : 'Você vai montar os grupos de acionistas antes de começar. A partida só começa pelo botão “Iniciar agora”.';
+              if (await confirmar(modoGrupo ? 'Jogar individual?' : 'Jogar em grupos?', txt, 'Mudar')) chamar('admin_definir_modo', { p_modo: modoGrupo ? 'solo' : 'grupo' });
+            },
+          }, modoGrupo ? 'Mudar para individual' : 'Mudar para grupos') : null),
         el('dt', {}, 'Entrada'), el('dd', {}, sala.entrada_aberta ? 'Aberta' : 'Encerrada'),
         el('dt', {}, 'Jogadores'), el('dd', {}, `${jogadores.length} (${prontos} prontos)`),
         sala.status === 'jogando' ? [
@@ -156,10 +170,12 @@ function desenhar(r) {
         }, icone('copiar', 18), 'Copiar')),
       el('div', { class: 'admin-botoes' },
         sala.status === 'lobby' ? el('button', {
-          class: 'btn btn-ouro', disabled: prontos < 2,
+          class: 'btn btn-ouro', disabled: prontos < 2 || (modoGrupo && !!r.grupos_problema),
           onclick: async () => {
             const faltam = jogadores.length - prontos;
-            const ok = await confirmar('Iniciar agora?', faltam > 0
+            const ok = await confirmar('Iniciar agora?', modoGrupo
+              ? `A partida começa com ${grupos.length} grupos.` + (faltam > 0 ? ` Os ${faltam} que ainda escolhem o avatar ficam de fora.` : '')
+              : faltam > 0
               ? `${prontos} jogadores estão prontos. Os ${faltam} que ainda escolhem o avatar continuam podendo entrar até o mercado fechar na 1ª rodada.`
               : `A partida começa com ${prontos} jogadores.`, 'Iniciar');
             if (ok) chamar('admin_iniciar_agora');
@@ -185,13 +201,15 @@ function desenhar(r) {
             if (await confirmar(sala.status === 'jogando' ? 'Encerrar a partida?' : 'Encerrar a sala?', txt, 'Encerrar')) chamar('admin_encerrar_sala');
           },
         }, 'Encerrar sala'))),
+    modoGrupo ? secaoGrupos(r) : null,
     el('section', { class: 'cartao admin-jogadores' },
       el('h2', { class: 'titulo-secao' }, 'Jogadores'),
       jogadores.length === 0 ? el('p', { class: 'texto-suave' }, 'Ninguém entrou ainda. Envie o link aos jogadores.') : null,
       sala.status === 'lobby' ? botoesBots(jogadores) : null,
       el('ul', { class: 'admin-lista' }, ...jogadores.map((j) => el('li', {},
         el('img', { src: j.pronto ? fotoSrc(j.foto) : AVATARES[0], alt: '', class: j.pronto ? '' : 'apagado' }),
-        el('span', { class: 'admin-nome' }, j.nome || 'Escolhendo avatar…', j.bot ? el('span', { class: 'selo-bot' }, icone('robo', 13), 'Bot') : null),
+        el('span', { class: 'admin-nome' }, j.nome || 'Escolhendo avatar…', j.bot ? el('span', { class: 'selo-bot' }, icone('robo', 13), 'Bot') : null,
+          modoGrupo && j.grupo_id ? el('span', { class: 'selo-grupo' }, icone('grupo', 13), nomeGrupo(j.grupo_id)) : null),
         el('span', { class: 'ponto ' + (j.online ? 'online' : 'offline'), title: j.online ? 'Conectado' : 'Desconectado' }),
         el('span', { class: 'chip ' + (j.pronto ? 'chip-ok' : 'chip-espera') }, j.pronto ? 'Pronto' : 'Escolhendo'),
         el('button', {
@@ -210,6 +228,8 @@ function desenharSemSala(ultima) {
   const capital = el('input', { class: 'campo', id: 'capital', type: 'number', min: '1000', step: '1000', value: '100000' });
   const meta = el('input', { class: 'campo', id: 'meta', type: 'number', min: '10000', step: '10000', value: '1000000' });
   const marcaBot = (id) => el('input', { type: 'checkbox', id: 'bot-' + id, value: id });
+  const modoSolo = el('input', { type: 'radio', name: 'modo', id: 'modo-solo', value: 'solo', checked: true });
+  const modoGrupo = el('input', { type: 'radio', name: 'modo', id: 'modo-grupo', value: 'grupo' });
   const bots = BOTS.map((b) => ({ ...b, caixa: marcaBot(b.id) }));
   const resumo = ultima ? el('section', { class: 'cartao admin-ultima' },
     el('h2', { class: 'titulo-secao' }, 'Última partida'),
@@ -222,7 +242,8 @@ function desenharSemSala(ultima) {
     onsubmit: async (ev) => {
       ev.preventDefault();
       corpo.replaceChildren();
-      await chamar('admin_criar_sala', { p_capital: Number(capital.value), p_meta: Number(meta.value), p_bots: bots.filter((b) => b.caixa.checked).map((b) => b.id) });
+      await chamar('admin_criar_sala', { p_capital: Number(capital.value), p_meta: Number(meta.value), p_bots: bots.filter((b) => b.caixa.checked).map((b) => b.id),
+        p_modo: modoGrupo.checked ? 'grupo' : 'solo' });
     },
   },
   el('h1', { class: 'titulo-secao' }, 'Nenhuma sala criada'),
@@ -230,6 +251,12 @@ function desenharSemSala(ultima) {
   el('div', { class: 'admin-campos' },
     el('label', { class: 'rotulo', for: 'capital' }, 'Capital inicial de cada jogador (R$)'), capital,
     el('label', { class: 'rotulo', for: 'meta' }, 'Meta para vencer (R$)'), meta),
+  el('fieldset', { class: 'admin-modos' },
+    el('legend', { class: 'rotulo' }, 'Modo de jogo'),
+    el('label', { class: 'admin-modo', for: 'modo-solo' }, modoSolo,
+      el('span', {}, el('strong', {}, 'Individual'), el('small', {}, 'Cada um joga por si. Vence quem chegar primeiro à meta.'))),
+    el('label', { class: 'admin-modo', for: 'modo-grupo' }, modoGrupo,
+      el('span', {}, el('strong', {}, 'Em grupos'), el('small', {}, 'Grupos de acionistas do mesmo tamanho, com líder. Os colegas dividem as empresas e mandam dinheiro uns aos outros. O grupo vence quando a soma chega à meta × membros.')))),
   el('fieldset', { class: 'admin-bots' },
     el('legend', { class: 'rotulo' }, 'Bots para jogar com você'),
     ...bots.map((b) => el('label', { class: 'admin-bot', for: 'bot-' + b.id }, b.caixa,
@@ -239,12 +266,82 @@ function desenharSemSala(ultima) {
 }
 
 // ---------------------------------------------------------------------
+// Grupos de acionistas (modo grupo)
+// ---------------------------------------------------------------------
+function secaoGrupos(r) {
+  const { sala, jogadores } = r;
+  const grupos = r.grupos || [];
+  const lobby = sala.status === 'lobby';
+  const porId = Object.fromEntries(jogadores.map((j) => [j.id, j]));
+  const pessoa = (id, lider) => {
+    const j = porId[id];
+    return el('li', { class: lider ? 'lider' : '' },
+      el('img', { src: j?.foto ? fotoSrc(j.foto) : AVATARES[0], alt: '' }),
+      el('span', {}, j?.nome || '—'), lider ? el('span', { class: 'chip chip-ok' }, icone('coroa', 12), 'líder') : null,
+      j?.bot ? el('span', { class: 'selo-bot' }, icone('robo', 12)) : null);
+  };
+  const lista = grupos.length ? el('div', { class: 'admin-grupos-lista' }, grupos.map((g) => el('div', { class: 'admin-grupo' },
+    el('header', {}, icone('grupo', 18), el('strong', {}, g.nome), el('span', { class: 'texto-mini' }, `${g.membros.length} pessoas`),
+      lobby ? el('button', {
+        class: 'btn btn-mini btn-perigo',
+        onclick: async () => { if (await confirmar(`Desfazer o grupo ${g.nome}?`, 'Os membros ficam sem grupo e podem ir para outro.', 'Desfazer')) chamar('admin_excluir_grupo', { p_grupo: g.id }); },
+      }, 'Desfazer') : null),
+    el('ul', { class: 'admin-grupo-membros' }, g.membros.map((id) => pessoa(id, id === g.lider_id))))))
+    : el('p', { class: 'texto-suave' }, 'Nenhum grupo ainda.');
+  if (!lobby) return el('section', { class: 'cartao admin-grupos' }, el('h2', { class: 'titulo-secao' }, 'Grupos de acionistas'), lista);
+
+  // montar um grupo novo: nome, membros (só quem está pronto e sem grupo) e líder
+  const livres = jogadores.filter((j) => j.pronto && j.nome && !j.grupo_id);
+  for (const id of [...rascunho.membros]) if (!livres.some((j) => j.id === id)) rascunho.membros.delete(id);
+  if (rascunho.lider && !rascunho.membros.has(rascunho.lider)) rascunho.lider = null;
+  const nome = el('input', { class: 'campo', id: 'grupo-nome', maxlength: '30', placeholder: 'Ex.: Águias', value: rascunho.nome });
+  nome.addEventListener('input', () => { rascunho.nome = nome.value; });
+  const tamanhos = [...new Set(grupos.map((g) => g.membros.length))];
+  const dica = tamanhos.length === 1 ? `Os outros grupos têm ${tamanhos[0]} pessoas.` : '';
+  const form = el('div', { class: 'admin-grupo-novo' },
+    el('h3', {}, 'Novo grupo'),
+    el('label', { class: 'rotulo', for: 'grupo-nome' }, 'Nome do grupo'), nome,
+    el('p', { class: 'rotulo' }, 'Membros (pelo menos 2) e líder ', el('span', { class: 'texto-mini' }, dica)),
+    livres.length ? el('ul', { class: 'admin-escolher' }, livres.map((j) => {
+      const marcado = rascunho.membros.has(j.id);
+      return el('li', { class: marcado ? 'marcado' : '' },
+        el('label', {},
+          el('input', { type: 'checkbox', checked: marcado, onchange: (e) => {
+            if (e.target.checked) { rascunho.membros.add(j.id); if (!rascunho.lider) rascunho.lider = j.id; }
+            else { rascunho.membros.delete(j.id); if (rascunho.lider === j.id) rascunho.lider = [...rascunho.membros][0] || null; }
+            e.target.blur(); desenhar(ultimoPainel);
+          } }),
+          el('img', { src: fotoSrc(j.foto), alt: '' }), el('span', {}, j.nome), j.bot ? el('span', { class: 'selo-bot' }, icone('robo', 12)) : null),
+        marcado ? el('button', {
+          class: 'btn btn-mini ' + (rascunho.lider === j.id ? 'btn-ouro' : 'btn-fantasma'),
+          onclick: () => { rascunho.lider = j.id; desenhar(ultimoPainel); },
+        }, icone('coroa', 12), rascunho.lider === j.id ? 'Líder' : 'Tornar líder') : null);
+    })) : el('p', { class: 'texto-suave' }, 'Todos os jogadores prontos já estão em grupos. Coloque bots ou espere mais gente entrar.'),
+    el('button', {
+      class: 'btn btn-ouro', disabled: rascunho.membros.size < 2 || !rascunho.lider,
+      onclick: async () => {
+        const nm = (rascunho.nome || nome.value).trim();
+        if (!nm) { toast('Dê um nome ao grupo.', 'aviso'); nome.focus(); return; }
+        const r2 = await chamar('admin_criar_grupo', { p_nome: nm, p_membros: [...rascunho.membros], p_lider: rascunho.lider });
+        if (r2) { rascunho.nome = ''; rascunho.membros.clear(); rascunho.lider = null; desenhar(r2); toast(`Grupo ${nm} criado.`, 'ok'); }
+      },
+    }, icone('grupo', 16), 'Criar grupo'));
+  return el('section', { class: 'cartao admin-grupos' },
+    el('h2', { class: 'titulo-secao' }, 'Grupos de acionistas'),
+    el('p', { class: 'texto-suave' }, 'Todos os grupos precisam ter o mesmo número de pessoas, e cada grupo tem um líder. Todos os jogadores prontos precisam estar num grupo.'),
+    r.grupos_problema ? el('p', { class: 'admin-aviso' }, icone('info', 16), r.grupos_problema)
+      : el('p', { class: 'admin-ok' }, `Tudo pronto: ${grupos.length} grupos de ${grupos[0]?.membros.length || 0} pessoas. Já pode iniciar.`),
+    lista, form);
+}
+
+// ---------------------------------------------------------------------
 // Bots
 // ---------------------------------------------------------------------
 const BOTS = [
   { id: 'jake', nome: 'Jake', foto: 'preset:6', jeito: 'Analítico e cuidadoso: estuda os preços, diversifica, guarda dinheiro e só pega empréstimo com juros baixo.' },
   { id: 'juliana', nome: 'Juliana', foto: 'preset:3', jeito: 'Intuitiva, mas controlada: aposta no que está subindo quando as notícias confirmam, guarda reserva e não se afoba nos leilões.' },
   { id: 'don', nome: 'Don', foto: 'preset:8', jeito: 'Ousado e estratégico: aposta alto com cálculo, concentra nas melhores empresas, ataca donos sem caixa e se prepara para o presente aos acionistas.' },
+  { id: 'lee', nome: 'Lee', foto: 'preset:14', jeito: 'O mais forte (nível avançado): lê as notícias quase sem errar, só age quando a conta fecha, ataca quem não tem caixa para defender e dá o lance decisivo nos últimos segundos.' },
 ];
 
 function botoesBots(jogadores) {

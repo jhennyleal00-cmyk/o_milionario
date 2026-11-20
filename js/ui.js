@@ -23,6 +23,14 @@ const fmtRealCurto = new Intl.NumberFormat('pt-BR', { style: 'currency', currenc
 export const real = (v) => (v === null || v === undefined ? '••••••' : fmtReal.format(Number(v)));
 const fmtCompacto = new Intl.NumberFormat('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
 export const realCompacto = (v) => (v === null || v === undefined ? '••••' : fmtCompacto.format(Number(v)));
+// valor curto para os prédios da cidade: R$ 450 · R$ 1,5K · R$ 28,8K · R$ 1,2M
+export function valorK(v) {
+  const n = Number(v) || 0, a = Math.abs(n);
+  const curto = (x) => x.toFixed(1).replace('.', ',').replace(/,0$/, '');
+  if (a >= 1e6) return `R$ ${curto(n / 1e6)}M`;
+  if (a >= 1000) return `R$ ${curto(n / 1000)}K`;
+  return `R$ ${Math.round(n)}`;
+}
 export const realCurto = (v) => (v === null || v === undefined ? '••••••' : fmtRealCurto.format(Number(v)));
 
 export function toast(msg, tipo = 'info') {
@@ -89,6 +97,9 @@ const ICONES = {
   globo: '<circle cx="12" cy="12" r="9.5"/><path d="M2.5 12h19"/><path d="M12 2.5c2.8 3 2.8 16 0 19M12 2.5c-2.8 3-2.8 16 0 19"/>',
   governo: '<path d="M3 21h18"/><path d="M5 21V11M9.5 21V11M14.5 21V11M19 21V11"/><path d="M3 11h18"/><path d="M12 3l9 5H3z"/>',
   obra: '<path d="M4 21V8l8-4 8 4v13"/><path d="M9 21v-6h6v6"/><path d="M2 21h20"/>',
+  grupo: '<circle cx="9" cy="8" r="3.2"/><path d="M3 19c.6-3.4 3-5.3 6-5.3s5.4 1.9 6 5.3"/><circle cx="16.8" cy="9.2" r="2.6"/><path d="M15.6 13.9c2.6-.3 4.6 1.3 5.4 4.6"/>',
+  enviar: '<path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4Z"/>',
+  pausa: '<rect x="6.5" y="5" width="3.5" height="14" rx="1"/><rect x="14" y="5" width="3.5" height="14" rx="1"/>',
   sorte: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.2" fill="currentColor"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
 };
 export function icone(nome, tam = 22) {

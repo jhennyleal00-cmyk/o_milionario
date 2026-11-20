@@ -1057,3 +1057,100 @@ button.caixa-inflacao:hover, button.faixa-noticias:hover { border-color: var(--l
 @keyframes resultado-sai { to { opacity: 0; transform: translate(-50%, -10px) scale(.97); } }
 @keyframes resultado-tempo { to { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .resultado-leilao, .resultado-leilao.saindo { animation: none; } }
+
+/* =====================================================================
+   Modo grupo · enviar dinheiro · pedir tempo · admin dos grupos
+   ===================================================================== */
+.btn-enviar { display: inline-flex; align-items: center; gap: 5px; }
+.mercado-carteira .btn-enviar { margin-top: 4px; padding: 3px 9px; font-size: 11px; }
+.cartao-grupo { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--ouro-claro); flex-wrap: wrap; }
+.cartao-grupo .btn-enviar { margin-left: auto; padding: 3px 9px; font-size: 11px; }
+.cartao-grupo-nome { font-weight: 700; }
+
+/* janela de enviar dinheiro */
+.enviar { display: grid; gap: 10px; }
+.enviar-colegas { display: grid; gap: 6px; }
+.enviar-colega { display: grid; grid-template-columns: 36px 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px;
+  border: 1px solid var(--linha); background: rgba(255, 255, 255, .03); color: var(--texto); font: inherit; text-align: left; cursor: pointer; }
+.enviar-colega.ativo { border-color: var(--ouro); background: rgba(214, 168, 64, .14); box-shadow: inset 3px 0 0 var(--ouro); }
+.enviar-colega img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.enviar-colega span { display: grid; gap: 1px; min-width: 0; }
+.enviar-colega small { color: var(--suave); font-size: 12px; }
+.enviar-lider { font-style: normal; font-weight: 600; color: var(--ouro-claro); font-size: 12px; }
+.campo-valor { font-size: 20px; font-weight: 800; text-align: center; }
+.enviar-atalhos { display: flex; flex-wrap: wrap; gap: 6px; }
+.enviar-resumo { display: flex; justify-content: space-between; margin: 0; font-size: 13px; color: var(--suave); }
+.enviar-resumo strong { color: var(--texto); }
+.enviar-resumo strong.negativo { color: var(--vermelho); }
+.enviar-aviso { margin: 0; padding: 8px 10px; border-radius: 10px; background: rgba(255, 107, 107, .12); color: #ffc4c4; font-size: 12px; }
+
+/* leilão: relógio parado, pedir tempo, colegas */
+.cronometro { grid-template-columns: 40px 1fr; }
+.cron-pausa { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--azul); }
+.cron-pausa:empty { display: none; }
+.cronometro.pausado .cron-num { color: var(--azul); }
+.cronometro.pausado .cron-barra i { background: var(--azul); animation: none; }
+.btn-tempo { display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
+.tempo-usado { margin: 0; }
+.disputa-ajudar { display: flex; flex-wrap: wrap; gap: 6px; }
+.disputa-ajudar .btn { display: inline-flex; align-items: center; gap: 5px; }
+.disputa.do-grupo { border-color: rgba(111, 182, 255, .55); box-shadow: inset 4px 0 0 var(--azul); background: rgba(111, 182, 255, .06); }
+.chip-grupo { background: rgba(111, 182, 255, .16); color: #bfe0ff; }
+.part-grupo { color: var(--suave); font-size: 11px; }
+
+/* donos em grupo: fotos sobrepostas */
+.fotos-grupo { display: inline-flex; flex: none; }
+.fotos-grupo img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--ouro); background: #222; }
+.fotos-grupo img + img { margin-left: -10px; }
+.emp-dono-grupo .fotos-grupo img { width: 26px; height: 26px; }
+.rank-grupo { color: var(--suave); font-weight: 600; font-size: 11px; }
+.rank-grupo-linha { grid-template-columns: 28px auto minmax(0, 1fr) auto; }
+.rank-grupo-linha .fotos-grupo img { width: 26px; height: 26px; }
+
+/* pódio dos grupos */
+.podio-grupos-lista { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.podio-grupos-lista li { display: grid; grid-template-columns: 32px auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.podio-grupos-lista li.sou-eu { background: rgba(214, 168, 64, .14); box-shadow: inset 3px 0 0 var(--ouro); }
+.podio-grupo-nome { display: grid; min-width: 0; }
+.podio-grupo-nome small { color: var(--suave); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* painel do administrador */
+.admin-modos { border: 0; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+.admin-modos legend { margin-bottom: 8px; padding: 0; }
+.admin-modo { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--linha); background: rgba(255, 255, 255, .03); }
+.admin-modo:has(input:checked) { border-color: var(--ouro); background: rgba(214, 168, 64, .1); }
+.admin-modo input { width: 18px; height: 18px; accent-color: var(--ouro); }
+.admin-modo span { display: grid; gap: 2px; }
+.admin-modo small { color: var(--suave); font-size: 12px; line-height: 1.4; }
+.admin-trocar-modo { margin-left: 8px; padding: 2px 8px; font-size: 11px; }
+.selo-grupo { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; padding: 1px 7px; border-radius: 999px; vertical-align: 2px;
+  background: rgba(111, 182, 255, .14); color: #bfe0ff; font-size: 11px; font-weight: 700; }
+.admin-grupos { display: grid; gap: 12px; }
+.admin-aviso, .admin-ok { display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 13px; }
+.admin-aviso { background: rgba(214, 168, 64, .12); color: var(--ouro-claro); }
+.admin-ok { background: rgba(60, 207, 142, .12); color: #b7f0d4; }
+.admin-grupos-lista { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.admin-grupo { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--linha); background: rgba(255, 255, 255, .03); display: grid; gap: 8px; }
+.admin-grupo header { display: flex; align-items: center; gap: 8px; color: var(--ouro-claro); }
+.admin-grupo header .btn { margin-left: auto; }
+.admin-grupo-membros, .admin-escolher { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.admin-grupo-membros li, .admin-escolher li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.admin-grupo-membros img, .admin-escolher img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.admin-grupo-membros .chip { display: inline-flex; align-items: center; gap: 3px; }
+.admin-grupo-novo { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--linha); }
+.admin-grupo-novo h3 { margin: 0; font-size: 15px; }
+.admin-escolher li { justify-content: space-between; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, .03); }
+.admin-escolher li.marcado { background: rgba(214, 168, 64, .12); }
+.admin-escolher label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.admin-escolher input { width: 18px; height: 18px; accent-color: var(--ouro); }
+.admin-escolher .btn { display: inline-flex; align-items: center; gap: 4px; }
+.admin-grupo-novo > .btn { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.emp-dono span.fotos-grupo { flex-direction: row; overflow: visible; flex: none; }
+.emp-dono-grupo > span:last-child { min-width: 0; }
+.cartao-grupo .icone { flex: none; }
+.cartao-grupo-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.cartao-grupo .chip { padding: 1px 7px; font-size: 10px; }
+@media (orientation: portrait) and (max-width: 760px) {
+  .cartao-grupo .btn-enviar { margin-left: 0; width: 100%; justify-content: center; }
+}

@@ -124,11 +124,23 @@ function telaPodio() {
       el('span', { class: 'podio-total' }, real(c.total)),
       el('div', { class: 'degrau-bloco' }, el('span', {}, `${lugar}º`))) : el('div', { class: `degrau degrau-${lugar} vazio` });
     const meu = cl.find((c) => c.id === euId);
+    // modo grupo: classificação dos grupos
+    const grupos = res.modo === 'grupo' ? (res.grupos || []) : [];
+    const meuGrupo = grupos.find((g) => g.membros.some((m) => m.id === euId));
+    const tabelaGrupos = grupos.length ? el('section', { class: 'cartao podio-tabela podio-grupos' },
+      el('h2', { class: 'titulo-secao' }, 'Grupos'),
+      el('ol', { class: 'podio-grupos-lista' }, grupos.map((g) => el('li', { class: g === meuGrupo ? 'sou-eu' : '' },
+        el('span', { class: 'rank-pos' }, `${g.posicao}º`),
+        el('span', { class: 'fotos-grupo' }, g.membros.slice(0, 4).map((m) => el('img', { src: fotoDe(m.id, m.foto), alt: '', title: m.nome }))),
+        el('span', { class: 'podio-grupo-nome' }, el('strong', {}, g.nome), el('small', {}, g.membros.map((m) => m.nome).join(', ') + (g.eliminado ? ' · faliu' : ''))),
+        el('strong', {}, real(g.total)))))) : null;
     raiz.replaceChildren(
       el('div', { class: 'podio-brilho', 'aria-hidden': 'true' }),
       el('header', { class: 'podio-topo' }, marca('pequena'), el('p', { class: 'podio-texto' }, res.texto)),
       el('section', { class: 'podio' }, degrau(cl[1], 2), degrau(cl[0], 1), degrau(cl[2], 3)),
-      meu ? el('p', { class: 'podio-meu' }, meu.posicao <= 3 ? `Você terminou em ${meu.posicao}º lugar!` : `Você terminou em ${meu.posicao}º lugar.`) : null,
+      meuGrupo ? el('p', { class: 'podio-meu' }, `Seu grupo, ${meuGrupo.nome}, terminou em ${meuGrupo.posicao}º lugar${meuGrupo.posicao === 1 ? '!' : '.'}`)
+        : meu ? el('p', { class: 'podio-meu' }, meu.posicao <= 3 ? `Você terminou em ${meu.posicao}º lugar!` : `Você terminou em ${meu.posicao}º lugar.`) : null,
+      tabelaGrupos,
       el('section', { class: 'cartao podio-tabela' },
         el('h2', { class: 'titulo-secao' }, 'Classificação final'),
         el('p', { class: 'texto-suave' }, `${res.rodada} ${res.rodada === 1 ? 'rodada' : 'rodadas'} · meta de ${real(res.meta)} · desempate: mais dinheiro, depois mais empresas, depois a empresa mais valiosa`),
@@ -136,7 +148,8 @@ function telaPodio() {
           el('thead', {}, el('tr', {}, ['', 'Jogador', 'Carteira', 'Patrimônio', 'Dívidas', 'Total', 'Empresas'].map((t) => el('th', {}, t)))),
           el('tbody', {}, cl.map((c) => el('tr', { class: c.id === euId ? 'sou-eu' : '' },
             el('td', {}, `${c.posicao}º`),
-            el('td', {}, el('span', { class: 'tabela-jogador' }, el('img', { src: fotoDe(c.id, c.foto), alt: '' }), c.nome, c.eliminado ? el('small', {}, ' (faliu)') : null)),
+            el('td', {}, el('span', { class: 'tabela-jogador' }, el('img', { src: fotoDe(c.id, c.foto), alt: '' }), c.nome,
+              c.grupo ? el('small', {}, ` · ${c.grupo}`) : null, c.eliminado ? el('small', {}, ' (faliu)') : null)),
             el('td', {}, real(c.carteira)), el('td', {}, real(c.patrimonio)), el('td', {}, real(c.dividas)),
             el('td', {}, el('strong', {}, real(c.total))),
             el('td', {}, c.empresas ? `${c.empresas}${c.maior_empresa ? ` · ${c.maior_empresa}` : ''}` : '—'))))))),

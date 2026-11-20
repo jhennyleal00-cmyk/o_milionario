@@ -6,6 +6,7 @@ import {
   criarSorteio, caixa, CORES_CARRO, misturar, RIO, PONTES, GG, BAIA, alturaPonte, pecasGG, pecasFora,
 } from './cidade-mapa.js';
 import { marca } from './logos.js';
+import { valorK } from './ui.js';
 
 const CICLO = 240, TRANSICAO = 12;   // 2 min de dia + 2 min de noite
 const suave = (t) => t * t * (3 - 2 * t);
@@ -453,17 +454,21 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       const sx = (sede.ancora[0] - cam.x) * cam.z + W / 2, sy = (sede.ancora[1] - cam.y) * cam.z + H / 2;
       if (sx < -150 || sx > W + 150 || sy < -60 || sy > H + 80) continue;
       const logoImg = imagem(marca(id));
-      const fotoImg = st.dono_id ? imagem(fotos[st.dono_id]) : null;
+      // donos: no modo grupo, a foto de todos os membros do grupo (até 4)
+      const idsDonos = st.grupo_id && st.membros?.length ? st.membros.slice(0, 4).map((m) => m.id) : st.dono_id ? [st.dono_id] : [];
       const tam = compacto ? 26 : 30;
+      const passo = Math.round(tam * 0.55), larguraFotos = idsDonos.length ? tam + (idsDonos.length - 1) * passo : tam;
       let w, h = tam + 10;
       ctx.font = '700 12px Manrope, system-ui, sans-serif';
-      const titulo = st.dono_id ? (st.dono_nome || 'Dono') : st.nome;
-      const sub = st.dono_id ? `${st.acoes_dono} ${st.acoes_dono === 1 ? 'ação' : 'ações'}` : 'Disponível';
+      const titulo = st.grupo_id ? `Grupo ${st.grupo_nome || ''}` : st.dono_id ? (st.dono_nome || 'Dono') : st.nome;
+      // valor: com dono, quanto valem as ações do dono (o lance que ele levou); sem dono, o preço de 1 ação
+      const valorTxt = st.dono_id ? valorK(st.valor ?? Number(st.preco) * st.acoes_dono) : valorK(st.preco);
+      const sub = st.dono_id ? `${st.acoes_dono} ${st.acoes_dono === 1 ? 'ação' : 'ações'} · ${valorTxt}` : `Disponível · ${valorTxt}`;
       const pctTxt = st.pct ? ` ${st.pct > 0 ? '▲' : '▼'} ${Math.abs(Number(st.pct)).toFixed(1).replace('.', ',')}%` : '';
       ctx.font = '600 11px Manrope, system-ui, sans-serif';
       const larguraSub = ctx.measureText(sub + pctTxt).width;
       ctx.font = '700 12px Manrope, system-ui, sans-serif';
-      w = compacto ? tam + 10 : tam + 18 + Math.max(ctx.measureText(titulo).width, larguraSub, 62);
+      w = compacto ? larguraFotos + 10 : larguraFotos + 18 + Math.max(ctx.measureText(titulo).width, larguraSub, 62);
       const x = sx - w / 2, y = sy - h - 9;
       // haste e sombra
       ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(sx, sy + 1, 7, 3, 0, 0, Math.PI * 2); ctx.fill();
@@ -474,26 +479,38 @@ export function criarCidade({ semente, aoClicarEmpresa }) {
       ctx.fillStyle = 'rgba(14,14,18,.9)'; ctx.fill();
       ctx.strokeStyle = st.dono_id ? 'rgba(246,220,142,.95)' : 'rgba(214,168,64,.55)'; ctx.lineWidth = st.dono_id ? 1.6 : 1; ctx.stroke();
       const ix = x + 5, iy = y + 5;
-      if (st.dono_id) {
-        ctx.save(); ctx.beginPath(); ctx.arc(ix + tam / 2, iy + tam / 2, tam / 2, 0, Math.PI * 2); ctx.clip();
-        if (fotoImg) ctx.drawImage(fotoImg, ix, iy, tam, tam); else { ctx.fillStyle = '#444'; ctx.fillRect(ix, iy, tam, tam); }
-        ctx.restore();
-        ctx.strokeStyle = '#d6a840'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(ix + tam / 2, iy + tam / 2, tam / 2, 0, Math.PI * 2); ctx.stroke();
-        if (logoImg) ctx.drawImage(logoImg, ix + tam - 12, iy + tam - 12, 15, 15);
+      if (idsDonos.length) {
+        // de trás para a frente, para a primeira foto ficar por cima
+        for (let k = idsDonos.length - 1; k >= 0; k--) {
+          const fx = ix + k * passo, fotoImg = imagem(fotos[idsDonos[k]]);
+          ctx.save(); ctx.beginPath(); ctx.arc(fx + tam / 2, iy + tam / 2, tam / 2, 0, Math.PI * 2); ctx.clip();
+          if (fotoImg) ctx.drawImage(fotoImg, fx, iy, tam, tam); else { ctx.fillStyle = '#444'; ctx.fillRect(fx, iy, tam, tam); }
+          ctx.restore();
+          ctx.strokeStyle = '#d6a840'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(fx + tam / 2, iy + tam / 2, tam / 2, 0, Math.PI * 2); ctx.stroke();
+        }
+        if (logoImg) ctx.drawImage(logoImg, ix + larguraFotos - 12, iy + tam - 12, 15, 15);
       } else if (logoImg) {
         ctx.drawImage(logoImg, ix, iy, tam, tam);
       }
-      seta(ix + tam - 1, iy + 1, Number(st.pct || 0));
+      seta(ix + larguraFotos - 1, iy + 1, Number(st.pct || 0));
+      const tx = ix + larguraFotos + 8;
       if (!compacto) {
-        ctx.fillStyle = '#f3eee2'; ctx.fillText(titulo, ix + tam + 8, iy + 13);
+        ctx.fillStyle = '#f3eee2'; ctx.fillText(titulo, tx, iy + 13);
         ctx.font = '600 11px Manrope, system-ui, sans-serif';
-        ctx.fillStyle = st.dono_id ? '#f6dc8e' : '#a9a292'; ctx.fillText(sub, ix + tam + 8, iy + 27);
+        ctx.fillStyle = st.dono_id ? '#f6dc8e' : '#a9a292'; ctx.fillText(sub, tx, iy + 27);
         if (pctTxt) {
           const w0 = ctx.measureText(sub).width;
-          ctx.fillStyle = st.pct > 0 ? '#3ccf8e' : '#ff6b6b'; ctx.fillText(pctTxt, ix + tam + 8 + w0, iy + 27);
+          ctx.fillStyle = st.pct > 0 ? '#3ccf8e' : '#ff6b6b'; ctx.fillText(pctTxt, tx + w0, iy + 27);
         }
+      } else {
+        // de longe: só o valor, numa etiqueta em cima da placa
+        ctx.font = '700 10px Manrope, system-ui, sans-serif';
+        const wv = ctx.measureText(valorTxt).width + 10;
+        retArred(ctx, sx - wv / 2, y - 15, wv, 13, 6);
+        ctx.fillStyle = 'rgba(14,14,18,.88)'; ctx.fill();
+        ctx.fillStyle = st.dono_id ? '#f6dc8e' : '#cfc8b8'; ctx.textAlign = 'center'; ctx.fillText(valorTxt, sx, y - 5); ctx.textAlign = 'left';
       }
-      alvos.push({ id, x, y, w, h: h + 9 });
+      alvos.push({ id, x, y: compacto ? y - 15 : y, w, h: h + 9 + (compacto ? 15 : 0) });
     }
   }
 

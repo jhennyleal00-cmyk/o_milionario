@@ -7,6 +7,7 @@ import { marca } from './logos.js';
 import { SETORES, botaoSobre } from './regras.js';
 import { miniGrafico, variacao } from './graficos.js';
 import { garantirFotos, foto as fotoDe } from './fotos.js';
+import { abrirEnviarDinheiro } from './grupo.js';
 
 const ORDEM_SETORES = ['energia', 'tecnologia', 'varejo', 'financas', 'recursos', 'saude'];
 const NOME_CURTO = { energia: 'Energia', tecnologia: 'Tecnologia', varejo: 'Varejo', financas: 'Finanças', recursos: 'Recursos', saude: 'Bem-estar' };
@@ -34,9 +35,18 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     faixaTexto.replaceChildren(el('span', {}, txt), el('span', {}, txt));
     faixaTexto.style.animationDuration = `${Math.max(30, txt.length * 0.22)}s`;
   }
+  const btnEnviar = el('button', {
+    class: 'btn btn-mini btn-fantasma btn-enviar', hidden: true, title: 'Enviar dinheiro para alguém do seu grupo',
+    onclick: () => enviarDinheiro(),
+  }, icone('enviar', 15), el('span', {}, 'Enviar'));
+  function enviarDinheiro(paraId = null) {
+    if (!dados?.grupo) return;
+    abrirEnviarDinheiro({ token, grupo: dados.grupo, euId: dados.eu.id, paraId,
+      aoEnviar: (r) => { if (r) { dados = r; desenhar(); } aoMudar?.(); } });
+  }
   const cabecalho = el('header', { class: 'mercado-topo' },
     el('div', { class: 'mercado-titulo' }, icone('mercado', 22), el('h2', {}, 'Mercado de Ações'), chip),
-    el('div', { class: 'mercado-carteira' }, el('span', {}, 'Carteira'), vCarteira),
+    el('div', { class: 'mercado-carteira' }, el('span', {}, 'Carteira'), vCarteira, btnEnviar),
     abasMovel,
     el('button', { class: 'btn-icone', 'aria-label': 'Fechar o mercado', onclick: () => fechar() }, icone('fechar', 18)));
 
@@ -125,11 +135,16 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     const agora = Date.now() + desvio;
     raiz.querySelectorAll('[data-prazo]').forEach((n) => {
       const total = Number(n.dataset.total) * 1000;
-      const resta = Math.max(0, new Date(n.dataset.prazo).getTime() - agora);
+      const pausa = n.dataset.pausa ? new Date(n.dataset.pausa).getTime() : 0;
+      const pausado = pausa > agora;                       // alguém pediu tempo: o relógio fica parado
+      const resta = Math.max(0, new Date(n.dataset.prazo).getTime() - (pausado ? pausa : agora));
       const seg = Math.ceil(resta / 1000);
       n.querySelector('.cron-num').textContent = `0:${String(seg).padStart(2, '0')}`;
       n.querySelector('.cron-barra i').style.width = `${Math.min(100, (resta / total) * 100)}%`;
-      n.classList.toggle('urgente', seg <= 5);
+      n.classList.toggle('urgente', seg <= 5 && !pausado);
+      n.classList.toggle('pausado', pausado);
+      const etq = n.querySelector('.cron-pausa');
+      if (etq) etq.textContent = pausado ? `Pausado · volta em ${Math.ceil((pausa - agora) / 1000)} s` : '';
     });
   }
 
@@ -148,7 +163,10 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
         dados.disputas.forEach((d) => d.participantes.forEach((p) => ids.add(p.jogador_id)));
         await garantirFotos(dados.sala.id, [...ids]);
         // na primeira vez, quem já tem empresa abre direto em "Minhas"
-        if (!setorEscolhido) { setorEscolhido = true; if (dados.empresas.some((e) => e.dono_id === dados.eu.id)) setor = 'minhas'; }
+        if (!setorEscolhido) {
+          setorEscolhido = true;
+          if (dados.empresas.some((e) => e.dono_id === dados.eu.id || (dados.eu.grupo_id && e.grupo_id === dados.eu.grupo_id))) setor = 'minhas';
+        }
         desenhar();
         if (irParaEmpresas) { irParaEmpresas = false; requestAnimationFrame(() => principal.querySelector('.empresas')?.scrollIntoView({ block: 'start' })); }
       }
@@ -172,9 +190,12 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   function avisarResultado(texto, d) {
     const emp = (d.empresas || []).slice().sort((a, b) => b.nome.length - a.nome.length).find((e) => texto.includes(e.nome));
     const meuNome = (d.jogadores || []).find((j) => j.id === d.eu?.id)?.nome || '';
-    const venci = meuNome && (texto.startsWith(`${meuNome} é o novo dono`) || texto.startsWith(`${meuNome} ainda é o dono`));
-    const perdi = !venci && emp && (d.disputas || []).some((x) => x.empresa_id === emp.id && x.participantes.some((p) => p.jogador_id === d.eu?.id));
-    fila.push({ texto, emp, venci, perdi });
+    const meuGrupo = d.grupo?.nome;
+    const venci = (meuNome && (texto.startsWith(`${meuNome} é o novo dono`) || texto.startsWith(`${meuNome} ainda é o dono`)))
+      || (meuGrupo && (texto.startsWith(`O grupo ${meuGrupo} é o novo dono`) || texto.startsWith(`O grupo ${meuGrupo} ainda é o dono`)));
+    const perdi = !venci && emp && (d.disputas || []).some((x) => x.empresa_id === emp.id
+      && x.participantes.some((p) => p.jogador_id === d.eu?.id || (d.eu?.grupo_id && p.grupo_id === d.eu.grupo_id)));
+    fila.push({ texto, emp, venci, perdi, grupo: !!meuGrupo && texto.startsWith('O grupo ') });
     if (!mostrando) proximoResultado();
   }
   function proximoResultado() {
@@ -184,7 +205,7 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     const cartao = el('div', { class: 'resultado-leilao' + (r.venci ? ' venci' : r.perdi ? ' perdi' : ''), role: 'status', 'aria-live': 'polite' },
       r.emp ? el('img', { src: marca(r.emp.id), alt: '' }) : icone('coroa', 34),
       el('div', {},
-        el('span', { class: 'resultado-rotulo' }, r.venci ? 'Você venceu o leilão!' : r.perdi ? 'Você não levou esta' : 'Resultado do leilão'),
+        el('span', { class: 'resultado-rotulo' }, r.venci ? (r.grupo ? 'Seu grupo venceu o leilão!' : 'Você venceu o leilão!') : r.perdi ? 'Você não levou esta' : 'Resultado do leilão'),
         el('strong', {}, r.texto)),
       el('i', { class: 'resultado-tempo' }));
     const fora = () => { cartao.classList.add('saindo'); setTimeout(() => { cartao.remove(); proximoResultado(); }, 220); };
@@ -267,21 +288,26 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     chip.className = 'chip ' + (sala.fase === 'mercado' && !eu.finalizou ? 'chip-ok' : 'chip-espera');
     vCarteira.textContent = real(eu.carteira);
     vCarteira.classList.toggle('negativo', Number(eu.carteira) < 0);
+    btnEnviar.hidden = !(sala.modo === 'grupo' && dados.grupo && !eu.eliminado && sala.status === 'jogando');
     raiz.dataset.movel = abaMovel;
     abasMovel.querySelectorAll('.aba').forEach((b) => b.classList.toggle('ativa', b.dataset.movel === abaMovel));
 
     const porEmpresa = Object.fromEntries(empresas.map((e) => [e.id, e]));
     const disputaDe = Object.fromEntries(disputas.map((d) => [d.empresa_id, d]));
     const minhas = disputas.filter((d) => d.participantes.some((p) => p.jogador_id === eu.id));
-    const outras = disputas.filter((d) => !d.participantes.some((p) => p.jogador_id === eu.id));
-    // os leilões em que o jogador está vêm primeiro (na ordem em que acontecem); os encerrados vão para o fim
+    const doGrupo = (d) => !!eu.grupo_id && d.participantes.some((p) => p.grupo_id === eu.grupo_id && p.jogador_id !== eu.id);
+    const doMeuGrupo = disputas.filter((d) => !minhas.includes(d) && doGrupo(d));
+    const outras = disputas.filter((d) => !minhas.includes(d) && !doMeuGrupo.includes(d));
+    // os leilões em que o jogador está vêm primeiro (na ordem em que acontecem), depois os dos colegas de grupo;
+    // os encerrados vão para o fim
     const fim = (d) => (d.status === 'encerrada' ? 1 : 0);
-    const lista = [...minhas.slice().sort((a, b) => fim(a) - fim(b)), ...outras.slice().sort((a, b) => fim(a) - fim(b))];
+    const ordenar = (l) => l.slice().sort((a, b) => fim(a) - fim(b));
+    const lista = [...ordenar(minhas), ...ordenar(doMeuGrupo), ...ordenar(outras)];
 
     // ---- leilões
     const empsLista = lista.map((d) => porEmpresa[d.empresa_id]);
     seMudou('leiloes', [lista, empsLista, minhas.map((x) => [x.id, x.status]),
-      eu.id, eu.carteira, eu.leilao_atual, podeNegociar], () => {
+      eu.id, eu.carteira, eu.leilao_atual, podeNegociar, dados.grupo?.membros?.map((m) => m.carteira)], () => {
     contaLeiloes.textContent = disputas.length ? `· ${disputas.length} ${disputas.length === 1 ? 'empresa' : 'empresas'}${minhas.length ? ` · você está em ${minhas.length}` : ''}` : '';
     listaLeiloes.replaceChildren(...(lista.length ? lista.map((d) => cartaoDisputa(d, porEmpresa[d.empresa_id], minhas, podeNegociar)).filter(Boolean)
       : [el('p', { class: 'texto-suave vazio' }, 'Nenhuma empresa em disputa agora. Aperte “Disputar” numa empresa para colocá-la em leilão.')]));
@@ -314,12 +340,13 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     // ---- empresas por setor
     const info = obterInfo();
     const series = Object.fromEntries((info?.empresas || []).map((e) => [e.id, (e.serie || []).map(Number)]));
-    const minhasEmp = empresas.filter((e) => e.dono_id === eu.id);
+    const ehMinha = (e) => (sala.modo === 'grupo' ? !!e.grupo_id && e.grupo_id === eu.grupo_id : e.dono_id === eu.id);
+    const minhasEmp = empresas.filter(ehMinha);
     const doSetor = setor === 'minhas' ? minhasEmp : empresas.filter((e) => e.setor === setor);
     seMudou('empresas', [setor, minhasEmp.length, doSetor, doSetor.map((e) => disputaDe[e.id] || null), doSetor.map((e) => series[e.id] || null), eu.id, podeNegociar], () => {
     abasSetor.replaceChildren(
       el('button', {
-        class: 'aba aba-minhas' + (setor === 'minhas' ? ' ativa' : ''), title: 'Empresas de que você é dono',
+        class: 'aba aba-minhas' + (setor === 'minhas' ? ' ativa' : ''), title: sala.modo === 'grupo' ? 'Empresas do seu grupo' : 'Empresas de que você é dono',
         onclick: () => { setor = 'minhas'; desenhar(); },
       }, icone('coroa', 14), `Minhas (${minhasEmp.length})`),
       ...ORDEM_SETORES.map((s) => el('button', {
@@ -328,7 +355,9 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       }, el('span', { class: 'ponto-setor' }), NOME_CURTO[s])));
     grade.dataset.setor = setor;
     grade.replaceChildren(...(doSetor.length ? doSetor.map((e) => cartaoEmpresa(e, disputaDe[e.id], eu, podeNegociar, series[e.id]))
-      : [el('p', { class: 'texto-suave vazio grade-vazia' }, 'Você ainda não é dono de nenhuma empresa. Escolha um setor e aperte “Disputar”.')]));
+      : [el('p', { class: 'texto-suave vazio grade-vazia' }, sala.modo === 'grupo'
+        ? 'Seu grupo ainda não tem empresas. Escolha um setor e aperte “Disputar”.'
+        : 'Você ainda não é dono de nenhuma empresa. Escolha um setor e aperte “Disputar”.')]));
     });
 
     // ---- fórum
@@ -355,6 +384,12 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
     const aoVivo = d.status === 'leilao';
     const preco = Number(emp?.preco || 0);
     const baseDono = emp?.dono_id ? Number(emp.acoes_dono) : 0;
+    const modoGrupo = dados.sala.modo === 'grupo';
+    const nomeGrupo = (gid) => (dados.grupos || []).find((g) => g.id === gid)?.nome;
+    const colegas = modoGrupo && eu.grupo_id ? d.participantes.filter((p) => p.grupo_id === eu.grupo_id && p.jogador_id !== eu.id) : [];
+    const liderP = d.participantes.find((p) => p.jogador_id === d.lider_id);
+    const grupoNaFrente = modoGrupo && !!liderP && !!eu.grupo_id && liderP.grupo_id === eu.grupo_id && d.lider_id !== eu.id;
+    const empDoGrupo = modoGrupo && !!emp?.grupo_id;
 
     // situação do leilão
     let situacao;
@@ -369,21 +404,21 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       const abridor = d.participantes.find((p) => p.jogador_id === d.abridor_id);
       situacao = el('div', { class: 'disputa-status' },
         el('p', {}, 'Lance de abertura: ', el('strong', {}, abridor?.nome || '—'),
-          baseDono ? ` (mínimo ${baseDono + 1} ações, o dono tem ${baseDono})` : ' (mínimo 1 ação)'),
-        cronometro(d.prazo, 30));
+          baseDono ? ` (mínimo ${baseDono + 1} ações, ${empDoGrupo ? 'o grupo dono' : 'o dono'} tem ${baseDono})` : ' (mínimo 1 ação)'),
+        cronometro(d.prazo, 30, d.pausa_ate));
     } else {
       situacao = el('div', { class: 'disputa-status' },
         el('p', { class: 'lance-atual' }, el('span', {}, 'Lance atual'),
           el('strong', {}, `${d.lance} ${d.lance === 1 ? 'ação' : 'ações'}`),
-          d.lider_id && d.lider_id === emp?.dono_id
-            ? el('span', {}, `de ${d.lider_nome} (dono, já tinha ${baseDono}) · paga só as ${d.lance - baseDono} a mais: ${real((d.lance - baseDono) * preco)}`)
+          d.lider_id && liderP?.papel === 'dono'
+            ? el('span', {}, `de ${d.lider_nome} (${empDoGrupo ? 'pelo grupo, que' : 'dono,'} já tinha ${baseDono}) · paga só as ${d.lance - baseDono} a mais: ${real((d.lance - baseDono) * preco)}`)
             : el('span', {}, `de ${d.lider_nome} · ${real(d.lance * preco)}`)),
-        cronometro(d.prazo, 20));
+        cronometro(d.prazo, 20, d.pausa_ate));
     }
 
     // lance (só quem está no leilão e pode lançar agora)
     let controles = null;
-    if (aoVivo && meu && ['abertura', 'lances'].includes(d.estado) && d.lider_id !== eu.id &&
+    if (aoVivo && meu && ['abertura', 'lances'].includes(d.estado) && d.lider_id !== eu.id && !grupoNaFrente &&
         (d.estado === 'lances' || d.abridor_id === eu.id)) {
       const minimo = Math.max(Number(d.lance || 0), baseDono) + 1;
       const base = meu.papel === 'dono' ? baseDono : 0;
@@ -399,7 +434,9 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       mostrarCusto();
       const somar = (n) => { campo.value = String(Math.max(minimo, (Math.floor(Number(campo.value) || 0)) + n)); mostrarCusto(); };
       controles = el('div', { class: 'lance-controles' },
-        meu.papel === 'dono' ? el('p', { class: 'texto-mini' }, `Você é o dono: suas ${baseDono} ações já são a sua oferta. Para defender, cubra o lance.`) : null,
+        meu.papel === 'dono' ? el('p', { class: 'texto-mini' }, empDoGrupo
+          ? `Você representa o grupo: as ${baseDono} ações do grupo já são a oferta. Para defender, cubra o lance (as ações a mais ficam com você).`
+          : `Você é o dono: suas ${baseDono} ações já são a sua oferta. Para defender, cubra o lance.`) : null,
         el('div', { class: 'lance-linha' },
           campo,
           el('button', { class: 'btn btn-mini btn-ouro', onclick: () => acao('dar_lance', { p_disputa: d.id, p_qtd: Math.floor(Number(campo.value) || 0) }) }, 'Dar lance')),
@@ -410,12 +447,37 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
           el('button', { class: 'btn btn-mini btn-fantasma', onclick: () => somar(50) }, '+50')),
         custo);
     } else if (aoVivo && meu && d.lider_id === eu.id) {
-      controles = el('p', { class: 'lance-meu' }, 'Seu lance é o maior. Se ninguém cobrir até o fim do tempo, a empresa é sua.');
+      controles = el('p', { class: 'lance-meu' }, modoGrupo
+        ? 'Seu lance é o maior. Se ninguém cobrir até o fim do tempo, a empresa fica com o seu grupo.'
+        : 'Seu lance é o maior. Se ninguém cobrir até o fim do tempo, a empresa é sua.');
+    } else if (aoVivo && meu && grupoNaFrente) {
+      controles = el('p', { class: 'lance-meu' }, `Seu grupo está na frente com o lance de ${d.lider_nome}.`);
+    }
+
+    // pedir tempo: o relógio para 30 s (uma vez por leilão, só jogadores reais)
+    let tempo = null;
+    if (aoVivo && meu && !eu.bot && ['abertura', 'lances'].includes(d.estado) && d.prazo) {
+      const parado = d.pausa_ate && new Date(d.pausa_ate).getTime() > Date.now() + desvio;
+      tempo = meu.pediu_tempo
+        ? el('p', { class: 'texto-mini tempo-usado' }, 'Você já pediu tempo neste leilão.')
+        : el('button', {
+          class: 'btn btn-mini btn-fantasma btn-tempo', disabled: !!parado,
+          title: 'Para o relógio por 30 segundos. Só dá para pedir uma vez em cada leilão.',
+          onclick: () => acao('pedir_tempo', { p_disputa: d.id }, 'O relógio parou por 30 segundos.'),
+        }, icone('pausa', 14), parado ? 'Relógio parado' : 'Pedir tempo (30 s)');
+    }
+
+    // modo grupo: mandar dinheiro para o colega que está no leilão
+    let ajudar = null;
+    if (aoVivo && modoGrupo && dados.grupo && colegas.length && !eu.eliminado && ['abertura', 'lances', 'espera'].includes(d.estado)) {
+      ajudar = el('div', { class: 'disputa-ajudar' }, colegas.map((c) => el('button', {
+        class: 'btn btn-mini btn-fantasma', onclick: () => enviarDinheiro(c.jogador_id),
+      }, icone('enviar', 14), `Enviar dinheiro para ${c.nome}`)));
     }
 
     // entrar na disputa direto pelo leilão (só antes de o mercado fechar)
     let entrar = null;
-    if (!meu && d.status === 'aberta') {
+    if (!meu && d.status === 'aberta' && !colegas.length && !(empDoGrupo && emp.grupo_id === eu.grupo_id)) {
       const minimoEntrar = preco * (emp?.dono_id ? baseDono + 1 : 1);
       entrar = el('div', { class: 'disputa-entrar' },
         el('span', { class: 'texto-mini' }, `Lance mínimo: ${real(minimoEntrar)}`),
@@ -427,22 +489,26 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
 
     const podeSair = meu && meu.papel !== 'dono' && !meu.deu_lance &&
       ((d.status === 'aberta' && podeNegociar) || (aoVivo && d.estado !== 'encerrado'));
-    return el('article', { 'data-disputa': String(d.id), class: `disputa estado-${d.status === 'encerrada' ? 'encerrado' : d.status === 'aberta' ? 'aberta' : d.estado}` + (meu ? ' minha' : '') },
+    return el('article', { 'data-disputa': String(d.id), class: `disputa estado-${d.status === 'encerrada' ? 'encerrado' : d.status === 'aberta' ? 'aberta' : d.estado}` + (meu ? ' minha' : colegas.length ? ' do-grupo' : '') },
       el('header', {},
         el('img', { src: marca(d.empresa_id), alt: '' }),
         el('div', {}, el('strong', {}, emp?.nome || d.empresa_id),
-          el('span', { class: 'texto-mini' }, emp?.dono_id ? `Dono: ${emp.dono_nome} · ${emp.acoes_dono} ações` : 'Disponível')),
+          el('span', { class: 'texto-mini' }, empDoGrupo ? `Grupo ${emp.grupo_nome} · ${emp.acoes_dono} ações`
+            : emp?.dono_id ? `Dono: ${emp.dono_nome} · ${emp.acoes_dono} ações` : 'Disponível')),
         ordemMinha >= 0 && d.status !== 'encerrada' ? el('span', { class: 'chip chip-espera', title: 'Ordem dos seus leilões' }, `Seu ${ordemMinha + 1}º`)
-          : meu ? el('span', { class: 'chip chip-espera' }, 'Seu') : null),
+          : meu ? el('span', { class: 'chip chip-espera' }, 'Seu')
+          : colegas.length ? el('span', { class: 'chip chip-grupo' }, 'Seu grupo') : null),
       situacao,
       el('ol', { class: 'participantes' }, d.participantes.map((p) => el('li', { class: p.jogador_id === d.lider_id ? 'lider' : '' },
         el('img', { src: fotoDe(p.jogador_id, p.foto), alt: '' }),
-        el('span', {}, p.nome),
-        p.papel === 'dono' ? el('span', { class: 'chip chip-ok' }, 'dono')
+        el('span', {}, p.nome, modoGrupo && p.grupo_id ? el('small', { class: 'part-grupo' }, ` · ${nomeGrupo(p.grupo_id) || ''}`) : null),
+        p.papel === 'dono' ? el('span', { class: 'chip chip-ok' }, empDoGrupo ? 'pelo grupo' : 'dono')
           : p.jogador_id === d.lider_id ? el('span', { class: 'chip chip-espera' }, 'na frente')
           : p.deu_lance ? el('span', { class: 'texto-mini' }, 'deu lance')
           : (p.jogador_id === d.criador_id && d.status === 'aberta' ? el('span', { class: 'texto-mini' }, 'primeiro lance') : null)))),
       controles,
+      tempo,
+      ajudar,
       entrar,
       podeSair ? el('button', {
         class: 'btn btn-mini btn-fantasma',
@@ -450,22 +516,28 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       }, aoVivo ? 'Sair do leilão' : 'Sair da disputa') : null);
   }
 
-  function cronometro(prazo, total) {
+  function cronometro(prazo, total, pausa = null) {
     if (!prazo) return null;
-    return el('div', { class: 'cronometro', 'data-prazo': prazo, 'data-total': String(total) },
-      el('span', { class: 'cron-num' }, ''), el('span', { class: 'cron-barra' }, el('i', {})));
+    return el('div', { class: 'cronometro', 'data-prazo': prazo, 'data-total': String(total), 'data-pausa': pausa || null },
+      el('span', { class: 'cron-num' }, ''), el('span', { class: 'cron-barra' }, el('i', {})), el('span', { class: 'cron-pausa' }, ''));
   }
 
   function cartaoEmpresa(e, disputa, eu, podeNegociar, serie) {
-    const souDono = e.dono_id === eu.id;
+    const modoGrupo = dados.sala.modo === 'grupo';
+    const doGrupo = modoGrupo && !!e.grupo_id;
+    const souDono = modoGrupo ? doGrupo && e.grupo_id === eu.grupo_id : e.dono_id === eu.id;
     const souParticipante = disputa?.participantes.some((p) => p.jogador_id === eu.id && p.papel !== 'dono');
+    const colegaNaDisputa = modoGrupo && eu.grupo_id && !souDono
+      ? disputa?.participantes.find((p) => p.grupo_id === eu.grupo_id && p.jogador_id !== eu.id) : null;
     const pct = e.anterior ? (e.preco / e.anterior - 1) * 100 : 0;
     let botoes;
     if (souDono) {
       botoes = [
         el('button', { class: 'btn btn-mini btn-ouro', disabled: !podeNegociar, onclick: () => negociar('comprar', e) }, 'Comprar'),
-        el('button', { class: 'btn btn-mini btn-fantasma', disabled: !podeNegociar, onclick: () => negociar('vender', e) }, 'Vender'),
+        el('button', { class: 'btn btn-mini btn-fantasma', disabled: !podeNegociar || (modoGrupo && !(e.minhas_acoes > 0)), onclick: () => negociar('vender', e) }, 'Vender'),
       ];
+    } else if (colegaNaDisputa) {
+      botoes = [el('span', { class: 'texto-mini' }, `${colegaNaDisputa.nome}, do seu grupo, está na disputa.`)];
     } else if (souParticipante) {
       botoes = [el('button', { class: 'btn btn-mini btn-fantasma', disabled: !podeNegociar, onclick: () => acao('sair_disputa', { p_disputa: disputa.id }) }, 'Sair da disputa')];
     } else {
@@ -484,7 +556,12 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       el('button', { class: 'emp-grafico', 'aria-label': `Ver o gráfico da ${e.nome}`, onclick: () => abrirEmpresa(e.id) },
         serie && serie.length > 1 ? miniGrafico(serie, 200, 46) : el('span', { class: 'texto-mini' }, 'Ver detalhes')),
       el('div', { class: 'emp-preco' }, el('span', {}, el('small', {}, '1 ação'), el('b', {}, real(e.preco))), variacao(pct)),
-      e.dono_id
+      doGrupo
+        ? el('div', { class: 'emp-dono emp-dono-grupo' },
+          el('span', { class: 'fotos-grupo' }, (e.cotas || []).slice(0, 4).map((c) => el('img', { src: fotoDe(c.jogador_id, c.foto), alt: '', title: `${c.nome}: ${c.acoes} ações` }))),
+          el('span', {}, souDono ? `Seu grupo (${e.grupo_nome})` : `Grupo ${e.grupo_nome}`,
+            el('small', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'}` + (souDono ? ` · suas: ${e.minhas_acoes || 0}` : ''))))
+        : e.dono_id
         ? el('div', { class: 'emp-dono' }, el('img', { src: fotoDe(e.dono_id, e.dono_foto), alt: '' }),
           el('span', {}, souDono ? 'Você' : e.dono_nome, el('small', {}, `${e.acoes_dono} ${e.acoes_dono === 1 ? 'ação' : 'ações'}`)))
         : el('div', { class: 'emp-dono livre' }, el('span', { class: 'chip chip-ok' }, 'Disponível')),
@@ -494,7 +571,9 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
   // Comprar / vender (só o dono)
   function negociar(tipo, e) {
     const total = dados.sala.total_acoes, preco = Number(e.preco), carteira = Number(dados.eu.carteira);
-    const max = tipo === 'comprar' ? Math.max(0, Math.min(total - e.acoes_dono, Math.floor(carteira / preco))) : e.acoes_dono;
+    const doGrupo = dados.sala.modo === 'grupo' && !!e.grupo_id;
+    const minhas = doGrupo ? Number(e.minhas_acoes || 0) : e.acoes_dono;
+    const max = tipo === 'comprar' ? Math.max(0, Math.min(total - e.acoes_dono, Math.floor(carteira / preco))) : minhas;
     if (max < 1) { toast(tipo === 'comprar' ? 'Sem dinheiro ou sem ações disponíveis para comprar.' : 'Você não tem ações para vender.', 'aviso'); return; }
     const campo = el('input', { class: 'campo campo-qtd', type: 'number', min: '1', max: String(max), value: '1', inputmode: 'numeric' });
     const resumo = el('p', { class: 'qtd-resumo' });
@@ -505,14 +584,17 @@ export function criarMercado({ token, abrirEmpresa, obterInfo, aoMudar }) {
       resumo.replaceChildren(
         el('span', {}, tipo === 'comprar' ? 'Custo' : 'Você recebe'), el('strong', {}, real(valor)),
         el('span', {}, 'Carteira depois'), el('strong', {}, real(tipo === 'comprar' ? carteira - valor : carteira + valor)),
-        ...(tipo === 'vender' && q === e.acoes_dono ? [el('em', {}, 'Vendendo tudo, a empresa volta a ficar disponível.')] : []));
+        ...(tipo === 'vender' && q === e.acoes_dono ? [el('em', {}, 'Vendendo tudo, a empresa volta a ficar disponível.')]
+          : tipo === 'vender' && doGrupo && q === minhas ? [el('em', {}, 'Você sai da empresa, mas ela continua do grupo com as ações dos colegas.')] : []));
     };
     campo.addEventListener('input', atualizar);
     atualizar();
     modal({
       titulo: `${tipo === 'comprar' ? 'Comprar' : 'Vender'} ações da ${e.nome}`, classe: 'modal-qtd',
       conteudo: el('div', { class: 'qtd' },
-        el('p', { class: 'texto-suave' }, `1 ação = ${real(preco)} · você tem ${e.acoes_dono} de ${total} ações`),
+        el('p', { class: 'texto-suave' }, doGrupo
+          ? `1 ação = ${real(preco)} · você tem ${minhas}, o grupo tem ${e.acoes_dono} de ${total} ações`
+          : `1 ação = ${real(preco)} · você tem ${e.acoes_dono} de ${total} ações`),
         el('div', { class: 'qtd-linha' },
           el('button', { class: 'btn btn-fantasma', 'aria-label': 'Menos', onclick: () => ajustar(Number(campo.value) - 1) }, '−'),
           campo,
